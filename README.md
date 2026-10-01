@@ -25,6 +25,9 @@
   (بما في ذلك على الاستهلاك من البحرين والإمارات — راجع قسم VAT)، والريال مربوط بالدولار عند 3.75.
 - **تغطية شاملة للخدمات**: حساب، تخزين، قواعد بيانات، Kubernetes، شبكة، وحساب التكلفة الكلية
   للتملّك (TCO) — كلها بأمر واحد.
+- **مخصصة للتسعير الأولي (budgetary)**: الأداة تمنحك خط أساس للمقارنة وبناء الميزانية قبل
+  التفاوض مع المزوّدين — السعر النهائي يحدّده المزوّد وغالبًا سيكون أفضل بعد الخصومات،
+  الحجوزات (Reserved/Committed)، أو برامج الرصيد الترويجية.
 
 ```bash
 git clone https://github.com/R3dn/saudi-cloud-cost-estimator-cli.git
@@ -231,13 +234,40 @@ Prices and FX rates are cached on disk for 24h (`~/.cache/saudi-cloud-costs`, ov
 `SAUDI_CLOUD_COSTS_CACHE_DIR`) so repeat runs are instant and API-friendly. Concurrent
 calls within one run share a single download. `--no-cache` skips both cache reads and writes.
 
+## Initial vs. final pricing
+
+This tool produces **initial (budgetary) estimates** to compare providers and size a
+first budget — the number you need *before* talking to a cloud provider. It is not a
+quote, and not a billing calculator.
+
+The **final price you actually pay** is set by the provider and will usually differ,
+typically in your favour:
+
+| Factor | Typical impact |
+|---|---|
+| Negotiated / enterprise discounts | Often 10–40% off list for committed spend |
+| Reserved instances, savings plans, committed-use contracts | 30–70% off on-demand for 1–3 year commitments |
+| Promotions and startup/cloud-credits programs | Can cover a large share of early usage |
+| Enterprise agreements / education & nonprofit offers | Contract-specific rates |
+| Support plans, licences (Windows, RHEL, databases), managed services | Add-ons not included in these estimates |
+
+How to use the two together:
+
+1. Run the tool to get an on-demand baseline and a like-for-like comparison across providers.
+2. Take the estimate to your provider(s) as a starting point for a commercial conversation.
+3. Ask for a quote against your actual workload — then compare the quoted prices, not the list prices.
+
+Everything the tool prints is list/on-demand pricing from official sources with its
+provenance tagged (`live` / `fallback` / `assumption`); your negotiated rates never
+appear in it. Reserved/committed-use comparisons are on the roadmap.
+
 ## Notes & limitations
 
 - Estimates cover the services listed above at on-demand rates — OS licences are not included.
 - Azure's Saudi Arabia East region is announced but not yet in the retail pricing API; the tool uses UAE North until it appears.
 - AWS has announced a Saudi region; Bahrain is used until it goes live.
 - Alibaba Cloud (Riyadh partner region) and Huawei Cloud (Riyadh) have no public pricing APIs; they are listed in `regions` as unavailable to automated pricing.
-- Prices are indicative; your negotiated/committed rates may differ.
+- Estimates are **initial/budgetary** on-demand rates — the final price with your provider usually differs once discounts, reserved capacity or credits are applied. See [Initial vs. final pricing](#initial-vs-final-pricing).
 
 ## Development
 

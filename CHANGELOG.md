@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- README: Arabic introduction for the Arabic cloud community the tool serves.
+- README: "Initial vs. final pricing" section — the tool is positioned as an
+  initial (budgetary) estimator; the final price set by the provider usually
+  differs after negotiated discounts, reserved/committed-use rates,
+  promotions or credits.
+
 ### Fixed
 
 - **Financial correctness**
