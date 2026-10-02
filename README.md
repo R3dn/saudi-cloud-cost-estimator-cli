@@ -3,6 +3,7 @@
 **Compare cloud costs across providers serving Saudi Arabia — in SAR, with 15% Saudi VAT — with price provenance on every line.**
 
 [![CI](https://github.com/R3dn/saudi-cloud-cost-estimator-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/R3dn/saudi-cloud-cost-estimator-cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/saudi-cloud-cost-estimator-cli.svg)](https://www.npmjs.com/package/saudi-cloud-cost-estimator-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
 
@@ -92,11 +93,12 @@ Most cloud cost tools focus on US/EU regions and USD. Saudi teams need:
 
 ## Install
 
-**From npm** (once the first release is published):
+**From npm**:
 
 ```bash
 npm install -g saudi-cloud-cost-estimator-cli
-npx saudi-cloud-cost-estimator-cli   # or run once without installing
+saudi-cloud-costs --help          # or run once without installing:
+npx saudi-cloud-cost-estimator-cli
 ```
 
 **From source** (works today):
