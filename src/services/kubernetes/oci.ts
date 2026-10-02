@@ -1,4 +1,4 @@
-import type { Currency, PriceSource, ServiceEstimateOptions } from '../../core/types.js';
+import type { Currency, PriceSource, ServiceEstimateOptions, SizeProfile } from '../../core/types.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { ociProvider } from '../../providers/oci.js';
 import {
@@ -15,7 +15,7 @@ import {
  * documented assumption surfaced to the user.
  */
 export async function ociK8sPrices(
-  input: { region: string; nodeProfile: OciNodeProfile },
+  input: { region: string; nodeProfile: SizeProfile },
   opts: ServiceEstimateOptions,
 ): Promise<{
   controlPlaneHourly: number;
@@ -44,5 +44,3 @@ export async function ociK8sPrices(
     ],
   };
 }
-
-type OciNodeProfile = 'small' | 'medium' | 'large' | 'xlarge';

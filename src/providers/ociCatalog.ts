@@ -10,6 +10,8 @@ const MAX_PAGES = 10;
 export const OCI_PARTS = {
   computeOcpu: 'B93113',
   computeMemory: 'B93114',
+  /** A10 GPU per-hour part (Compute - GPU - A10). */
+  gpuA10: 'B95909',
   objectStorage: 'B91628',
   blockStorage: 'B91961',
   fileStorage: 'B89057',

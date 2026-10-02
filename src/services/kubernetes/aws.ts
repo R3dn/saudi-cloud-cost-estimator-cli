@@ -1,4 +1,4 @@
-import type { Currency, PriceSource, ServiceEstimateOptions } from '../../core/types.js';
+import type { Currency, PriceSource, ServiceEstimateOptions, SizeProfile } from '../../core/types.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { awsProvider } from '../../providers/aws.js';
 import { fetchAwsOfferRows, bestPrice } from '../../providers/awsCatalog.js';
@@ -8,7 +8,7 @@ import { fetchAwsOfferRows, bestPrice } from '../../providers/awsCatalog.js';
  * offer (usageType ...-AmazonEKS-Hours:perCluster). Nodes are priced as EC2.
  */
 export async function awsK8sPrices(
-  input: { region: string; nodeProfile: K8sNodeProfile },
+  input: { region: string; nodeProfile: SizeProfile },
   opts: ServiceEstimateOptions,
 ): Promise<{
   controlPlaneHourly: number;
@@ -52,5 +52,3 @@ export async function awsK8sPrices(
     warnings,
   };
 }
-
-type K8sNodeProfile = 'small' | 'medium' | 'large' | 'xlarge';

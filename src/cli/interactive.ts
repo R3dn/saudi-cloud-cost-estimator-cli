@@ -2,7 +2,7 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import type { EstimateOptions, ProviderId, SizeProfile } from '../core/types.js';
 import { providers } from '../providers/index.js';
-import { SIZE_PROFILES, SKU_MAP } from '../data/sizes.js';
+import { SIZE_PROFILES, SKU_MAP, PROFILE_SPECS } from '../data/sizes.js';
 import { runEstimate } from './estimate.js';
 
 function unpack<T>(value: T): asserts value is Exclude<T, symbol> {
@@ -11,6 +11,13 @@ function unpack<T>(value: T): asserts value is Exclude<T, symbol> {
     process.exit(1);
   }
 }
+
+const PROFILE_GROUPS: { title: string; profiles: SizeProfile[] }[] = [
+  { title: 'General purpose', profiles: ['small', 'medium', 'large', 'xlarge', '2xlarge', '3xlarge'] },
+  { title: 'Memory optimized', profiles: ['mem-medium', 'mem-large', 'mem-xlarge', 'mem-2xlarge'] },
+  { title: 'Compute optimized', profiles: ['cpu-medium', 'cpu-large', 'cpu-xlarge', 'cpu-2xlarge'] },
+  { title: 'GPU', profiles: ['gpu-medium', 'gpu-large'] },
+];
 
 export async function interactiveMode(opts: EstimateOptions): Promise<void> {
   p.intro(pc.bgCyan(pc.black(' Saudi Cloud Cost Estimator ')));
@@ -38,12 +45,21 @@ export async function interactiveMode(opts: EstimateOptions): Promise<void> {
   unpack(regionIdRaw);
   const regionId = regionIdRaw as string;
 
+  const profileOptions: { value: SizeProfile; label: string; hint?: string }[] = [];
+  for (const group of PROFILE_GROUPS) {
+    for (const s of group.profiles) {
+      if (!SIZE_PROFILES.includes(s)) continue;
+      const spec = PROFILE_SPECS[s]!;
+      profileOptions.push({
+        value: s,
+        label: `${s} (${spec.vcpu} vCPU / ${spec.gb} GB${s.startsWith('gpu-') ? ', GPU' : ''})`,
+        hint: group.title,
+      });
+    }
+  }
   const profileRaw = await p.select({
     message: 'What instance size?',
-    options: SIZE_PROFILES.map((s) => ({
-      value: s,
-      label: `${s} (${SKU_MAP[providerId]![s]!.vcpu} vCPU / ${SKU_MAP[providerId]![s]!.gb} GB)`,
-    })),
+    options: profileOptions,
   });
   unpack(profileRaw);
   const profile = profileRaw as SizeProfile;

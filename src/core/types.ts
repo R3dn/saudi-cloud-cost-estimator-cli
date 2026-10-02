@@ -20,16 +20,48 @@ export interface RegionInfo {
   note?: string;
 }
 
-export type SizeProfile = 'small' | 'medium' | 'large' | 'xlarge';
+export type GeneralProfile = 'small' | 'medium' | 'large' | 'xlarge' | '2xlarge' | '3xlarge';
+export type MemoryProfile = 'mem-medium' | 'mem-large' | 'mem-xlarge' | 'mem-2xlarge';
+export type ComputeProfile = 'cpu-medium' | 'cpu-large' | 'cpu-xlarge' | 'cpu-2xlarge';
+export type GpuProfile = 'gpu-medium' | 'gpu-large';
+
+export type SizeProfile = GeneralProfile | MemoryProfile | ComputeProfile | GpuProfile;
+
+export const SIZE_PROFILES: SizeProfile[] = [
+  'small',
+  'medium',
+  'large',
+  'xlarge',
+  '2xlarge',
+  '3xlarge',
+  'mem-medium',
+  'mem-large',
+  'mem-xlarge',
+  'mem-2xlarge',
+  'cpu-medium',
+  'cpu-large',
+  'cpu-xlarge',
+  'cpu-2xlarge',
+  'gpu-medium',
+  'gpu-large',
+];
+
+export interface GpuSpec {
+  model: string;
+  count: number;
+}
 
 export interface SizeSpec {
-  profile: SizeProfile;
+  /** Undefined for ad-hoc specs built from --instance/--ocpus rather than a named profile. */
+  profile?: SizeProfile;
   vcpu: number;
   gb: number;
   /** Provider-specific instance identifier (AWS instance type, Azure SKU, GCP machine type). */
   instance: string;
   /** OCI flexible shape parameters. */
   ocpus?: number;
+  /** GPUs attached to the shape (GPU profiles and --instance GPU types). */
+  gpu?: GpuSpec;
 }
 
 export interface PriceQuote {
@@ -136,4 +168,16 @@ export interface Provider {
   regions: RegionInfo[];
   /** Hourly on-demand Linux price for a size profile in a region. */
   getHourlyPrice(region: string, size: SizeSpec, opts: EstimateOptions): Promise<PriceQuote>;
+}
+
+export interface GcpSku {
+  description: string;
+  category: { resourceGroup: string; resourceFamily?: string; usageType: string };
+  serviceRegions: string[];
+  pricingInfo: {
+    pricingExpression: {
+      usageUnit: string;
+      tieredRates: { unitPrice: { units: string; nanos: number } }[];
+    };
+  }[];
 }

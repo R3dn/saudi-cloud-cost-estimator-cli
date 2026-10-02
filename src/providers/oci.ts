@@ -23,17 +23,26 @@ export const ociProvider: Provider = {
     const currency = ociCurrency(opts.currency);
     const ocpuRate = paygRate(ocpuPart, currency);
     const memRate = paygRate(memPart, currency);
-    const hourly = ocpus * ocpuRate + size.gb * memRate;
+    let hourly = ocpus * ocpuRate + size.gb * memRate;
+    let instance = `VM.Standard.E4.Flex (${ocpus} OCPU / ${size.gb} GB)`;
+    let skuRef = `${OCI_PARTS.computeOcpu}+${OCI_PARTS.computeMemory}`;
+    if (size.gpu) {
+      const gpuPart = ociPartProduct(products, OCI_PARTS.gpuA10);
+      const gpuRate = paygRate(gpuPart, currency);
+      hourly += size.gpu.count * gpuRate;
+      instance = `${size.instance} (${ocpus} OCPU / ${size.gb} GB + ${size.gpu.count}× ${size.gpu.model})`;
+      skuRef = `${OCI_PARTS.computeOcpu}+${OCI_PARTS.computeMemory}+${OCI_PARTS.gpuA10}`;
+    }
     return {
       provider: 'oci',
       region,
-      instance: `VM.Standard.E4.Flex (${ocpus} OCPU / ${size.gb} GB)`,
+      instance,
       hourly,
       listedCurrency: currency,
       vcpu: size.vcpu,
       gb: size.gb,
       source: 'live',
-      skuRef: `${OCI_PARTS.computeOcpu}+${OCI_PARTS.computeMemory}`,
+      skuRef,
     };
   },
 };

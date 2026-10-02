@@ -8,6 +8,31 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Expanded compute sizing**: 16 size profiles across four families — general
+  purpose (`small`…`3xlarge`, new `2xlarge`/`3xlarge` 32/64 vCPU), memory-optimized
+  (`mem-*`, r6i/Esv5/n2-highmem), compute-optimized (`cpu-*`, c6i/Fsv2/n2-highcpu)
+  and GPU (`gpu-medium`/`gpu-large`). The GPU profiles pick the smallest
+  inference-class GPU actually listed per region: OCI VM.GPU.A10 (live A10 GPU part
+  `B95909` in native SAR), AWS g4dn (T4 — the only GPU family in me-south-1),
+  Azure RTX PRO 6000 Blackwell v6 (uaenorth lists no T4 series), GCP T4 discovered
+  at runtime (fails loudly if the region has no matching SKU).
+- **`--instance <sku>`** on `compute estimate` (and the top-level alias): price any
+  on-demand Linux SKU for AWS/Azure/GCP. AWS reads vCPU/RAM/GPU specs from the bulk
+  CSV; Azure derives specs from the SKU name (the retail API returns none); GCP
+  parses predefined `n2`/`e2`/`c2` machine types. Unknown SKUs fail loudly — no
+  silent substitution.
+- **`--ocpus`/`--memory`** on `compute estimate`: custom OCI flex shapes, priced by
+  the live OCPU/GB parts. `--instance` on OCI points to these flags (flex shapes
+  have no fixed SKUs). Flags are mutually exclusive with `--size` and each other.
+- **End-to-end test suite** (`tests/cli-e2e.test.ts`, private suite): the built binary
+  run as a real child process against faithful mocks of all four provider APIs
+  (AWS ranged CSV chunks, Azure OData filters, GCP Billing Catalog, OCI parts incl.
+  GPU/tiers) plus the FX API — 47 cases with golden numbers covering every profile,
+  custom sizing, GPU pricing, cross-service composition (k8s/storage/db/network/TCO)
+  and the failure contracts. `npm test` runs unit + service + CLI smoke + e2e;
+  `test:cli` runs the CLI suites on a fresh build. Restored the missing `test`,
+  `test:unit`, `test:cli` scripts and the `vitest` devDependency (the suite itself
+  remains unpublished in the package, per repository policy).
 - README: Arabic introduction for the Arabic cloud community the tool serves.
 - README: "Initial vs. final pricing" section — the tool is positioned as an
   initial (budgetary) estimator; the final price set by the provider usually
@@ -17,6 +42,10 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 
 - **Financial correctness**
+  - `tco` respects explicit zeros: `--storage-block 0`, `--network-egress 0`,
+    `--network-lb 0`, `--k8s-nodes 0` and `--db-storage 0` are honoured instead of
+    being silently replaced by their defaults (`0 || 100` coercion bug, caught by
+    the e2e suite).
   - `storage compare`, `database compare` and `k8s compare` no longer pass an empty
     region to estimators; each provider resolves its own region, so rows are priced
     (or fail) against real region data instead of silently falling back to hardcoded

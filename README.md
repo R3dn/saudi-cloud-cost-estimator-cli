@@ -23,8 +23,8 @@
   لا يُقدَّم أي تقدير على أنه سعر رسمي من المزوّد.
 - **الضريبة والعملة صحيحة**: تُحتسب ضريبة القيمة المضافة السعودية 15% افتراضيًا كافتراض موثّق
   (بما في ذلك على الاستهلاك من البحرين والإمارات — راجع قسم VAT)، والريال مربوط بالدولار عند 3.75.
-- **تغطية شاملة للخدمات**: حساب، تخزين، قواعد بيانات، Kubernetes، شبكة، وحساب التكلفة الكلية
-  للتملّك (TCO) — كلها بأمر واحد.
+- **تغطية شاملة للخدمات**: حساب (بما فيها أحجام GPU وذاكرة/معالج مُحسّنة)، تخزين، قواعد بيانات،
+  Kubernetes، شبكة، وحساب التكلفة الكلية للتملّك (TCO) — كلها بأمر واحد.
 - **مخصصة للتسعير الأولي (budgetary)**: الأداة تمنحك خط أساس للمقارنة وبناء الميزانية قبل
   التفاوض مع المزوّدين — السعر النهائي يحدّده المزوّد وغالبًا سيكون أفضل بعد الخصومات،
   الحجوزات (Reserved/Committed)، أو برامج الرصيد الترويجية.
@@ -98,8 +98,10 @@ saudi-cloud-costs tco                # full TCO wizard
 
 ```bash
 saudi-cloud-costs compute estimate -p oci -r me-riyadh-1 -s medium
-saudi-cloud-costs compute estimate -p aws -s large --currency USD --no-vat
-saudi-cloud-costs compute compare -s medium --json
+saudi-cloud-costs compute estimate -p aws -s mem-large --currency USD --no-vat
+saudi-cloud-costs compute estimate -p aws --instance r6i.4xlarge          # price any AWS SKU
+saudi-cloud-costs compute estimate -p oci --ocpus 6 --memory 48           # custom OCI flex shape
+saudi-cloud-costs compute compare -s gpu-medium --json                  # compare GPU offerings
 ```
 
 ### Storage / database / Kubernetes / network
@@ -131,12 +133,53 @@ saudi-cloud-costs cache clear
 
 ### Size profiles
 
+Four families of curated t-shirt sizes (a documented mapping, not a provider fact).
+`compute compare` keeps comparisons apples-to-apples by profile.
+
 | Profile | vCPU | RAM | OCI (flex) | AWS | Azure | GCP |
 |---|---|---|---|---|---|---|
 | small | 2 | 8 GB | E4.Flex 2/8 | m6i.large | D2s_v5 | n2-standard-2 |
 | medium | 4 | 16 GB | E4.Flex 4/16 | m6i.xlarge | D4s_v5 | n2-standard-4 |
 | large | 8 | 32 GB | E4.Flex 8/32 | m6i.2xlarge | D8s_v5 | n2-standard-8 |
 | xlarge | 16 | 64 GB | E4.Flex 16/64 | m6i.4xlarge | D16s_v5 | n2-standard-16 |
+| 2xlarge | 32 | 128 GB | E4.Flex 32/128 | m6i.8xlarge | D32s_v5 | n2-standard-32 |
+| 3xlarge | 64 | 256 GB | E4.Flex 64/256 | m6i.16xlarge | D64s_v5 | n2-standard-64 |
+| mem-medium | 4 | 32 GB | E4.Flex 4/32 | r6i.xlarge | E4s_v5 | n2-highmem-4 |
+| mem-large | 8 | 64 GB | E4.Flex 8/64 | r6i.2xlarge | E8s_v5 | n2-highmem-8 |
+| mem-xlarge | 16 | 128 GB | E4.Flex 16/128 | r6i.4xlarge | E16s_v5 | n2-highmem-16 |
+| mem-2xlarge | 32 | 256 GB | E4.Flex 32/256 | r6i.8xlarge | E32s_v5 | n2-highmem-32 |
+| cpu-medium | 4 | 8 GB | E4.Flex 4/8 | c6i.xlarge | F4s_v2 | n2-highcpu-4 |
+| cpu-large | 8 | 16 GB | E4.Flex 8/16 | c6i.2xlarge | F8s_v2 | n2-highcpu-8 |
+| cpu-xlarge | 16 | 32 GB | E4.Flex 16/32 | c6i.4xlarge | F16s_v2 | n2-highcpu-16 |
+| cpu-2xlarge | 32 | 64 GB | E4.Flex 32/64 | c6i.8xlarge | F32s_v2 | n2-highcpu-32 |
+
+#### GPU profiles
+
+GPU profiles pick the smallest inference-class GPU actually listed in each region —
+the catalogs differ substantially:
+
+| Profile | OCI (Riyadh/Jeddah) | AWS (Bahrain) | Azure (UAE North) | GCP (Dammam) |
+|---|---|---|---|---|
+| gpu-medium | VM.GPU.A10.1 (1× A10) | g4dn.xlarge (1× T4) | NC24lds RTX PRO 6000 v6 (1× RTX PRO 6000 Blackwell) | N2 + 1× T4 (if listed) |
+| gpu-large | VM.GPU.A10.4 (4× A10) | g4dn.12xlarge (4× T4) | NC144lds RTX PRO 6000 v6 (4× RTX PRO 6000 Blackwell) | N2 + 4× T4 (if listed) |
+
+- OCI adds the **A10 GPU part** (`B95909`, per-GPU-hour) on top of the flexible host
+  OCPU/GB — both priced live in native SAR.
+- GCP discovers GPU SKUs in the Billing Catalog at runtime; if the region has no
+  matching GPU SKU the estimate **fails loudly** with a pointer instead of guessing.
+- Training-class GPUs (H100, A100, B200...) are reachable via `--instance` where the
+  provider lists them (e.g. `--instance Standard_NC40ads_H100_v5` on Azure).
+
+#### Custom sizing
+
+- `--instance <sku>` — price **any** on-demand Linux SKU for AWS/Azure/GCP instead of
+  a profile. AWS reads vCPU/RAM/GPU specs from the bulk CSV; Azure derives them from
+  the SKU name (the retail API does not return machine specs); GCP parses the
+  predefined machine type (`n2-…`, `e2-…`, `c2-…`).
+- `--ocpus <n>` `--memory <gb>` — size a custom **OCI flex shape** (OCI has no fixed
+  SKUs to name, so `--instance` points OCI users here).
+- The flags are mutually exclusive with `--size` and with each other; unknown SKUs
+  fail loudly — the tool never substitutes a nearby instance silently.
 
 ### Options
 
@@ -144,7 +187,9 @@ saudi-cloud-costs cache clear
 |---|---|
 | `-p, --provider` | oci, aws, azure or gcp |
 | `-r, --region` | region id (see `regions`) |
-| `-s, --size` | small, medium, large, xlarge |
+| `-s, --size` | size profile (see the table above) |
+| `--instance <sku>` | price a specific AWS/Azure/GCP SKU instead of a profile |
+| `--ocpus <n>` / `--memory <gb>` | custom OCI flex shape (estimate only) |
 | `--currency` | SAR (default) or USD |
 | `--hours` | hours per month (default 730) — applies to **every** hourly-billed service |
 | `--no-vat` | exclude 15% Saudi VAT |
@@ -279,10 +324,15 @@ npm run build
 npm run smoke
 ```
 
-CI (Linux + Windows, Node 20/22) runs the same checks on every push.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules — most importantly:
-every price needs provenance, and every pricing change must be verified against the
-provider's own pricing page.
+The repository also ships a private test suite (not published in the package);
+maintainers run `npm test` — unit, service, CLI smoke and end-to-end cases, all
+against **mocked provider APIs** so no run ever hits live endpoints. Every pricing
+rule is covered by a test with golden numbers.
+
+CI (Linux + Windows, Node 20/22) runs typecheck, lint, build and smoke checks on
+every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules — most
+importantly: every price needs provenance, and every pricing change must be verified
+against the provider's own pricing page.
 
 ## Roadmap
 
@@ -290,6 +340,7 @@ provider's own pricing page.
 - [ ] Reserved/committed-use pricing comparisons
 - [ ] Azure Saudi Arabia East + AWS KSA regions once live
 - [ ] i18n (Arabic output)
+- [ ] ARM/Graviton instance families in the curated profiles
 
 ## Security
 
@@ -301,7 +352,7 @@ rather than a shell-visible flag where possible. See [SECURITY.md](SECURITY.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Ground rules: every price needs provenance,
-and every pricing change needs a test with a mocked API response.
+and pricing changes must be verified against the provider's official pricing page.
 
 ## License
 

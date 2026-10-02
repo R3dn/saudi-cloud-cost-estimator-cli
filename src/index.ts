@@ -4,7 +4,7 @@ import pc from 'picocolors';
 import { readFileSync } from 'node:fs';
 import type { Currency, ProviderId, SizeProfile } from './core/types.js';
 import { providers } from './providers/index.js';
-import { DEFAULT_HOURS, SIZE_PROFILES, SKU_MAP } from './data/sizes.js';
+import { DEFAULT_HOURS, SIZE_PROFILES, resolveSize } from './data/sizes.js';
 import { interactiveMode } from './cli/interactive.js';
 import { interactiveStorage } from './cli/interactive-storage.js';
 import { interactiveDatabase } from './cli/interactive-database.js';
@@ -44,6 +44,12 @@ function parseHours(v: string): number {
 function parseNonNegative(v: string): number {
   const n = Number(v);
   if (!Number.isFinite(n) || n < 0) throw new InvalidArgumentError('Must be a non-negative number');
+  return n;
+}
+
+function parsePositive(v: string): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) throw new InvalidArgumentError('Must be a positive number');
   return n;
 }
 
@@ -92,6 +98,9 @@ compute
   .option('-p, --provider <provider>', 'cloud provider (oci|aws|azure|gcp)', parseProvider)
   .option('-r, --region <region>', 'region id, e.g. me-riyadh-1')
   .option('-s, --size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile as (v: string) => SizeProfile)
+  .option('--instance <sku>', 'price a specific provider SKU (AWS/Azure/GCP) instead of a size profile')
+  .option('--ocpus <n>', 'OCI flex shape OCPUs (OCI only, with --memory)', parsePositive)
+  .option('--memory <gb>', 'OCI flex shape memory GB (OCI only, with --ocpus)', parseNonNegative)
   .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
   .option('--hours <hours>', 'hours per month (used for ALL hourly-billed services)', parseHours, DEFAULT_HOURS)
   .option('--no-vat', 'exclude 15% Saudi VAT from totals')
@@ -108,7 +117,13 @@ compute
     }
     const providerId = opts.provider as ProviderId;
     const regionId = resolveRegion(providerId, opts.region);
-    const size = opts.size ? (SKU_MAP[providerId]![opts.size as SizeProfile]!) : SKU_MAP[providerId]!.medium!;
+    const size = resolveSize({
+      providerId,
+      profile: opts.size as SizeProfile | undefined,
+      instance: opts.instance,
+      ocpus: opts.ocpus,
+      memory: opts.memory,
+    });
     await runEstimate(estOpts, { providerId, regionId, size, json: Boolean(opts.json) });
   });
 
@@ -464,19 +479,19 @@ program
         hours: Number(opts.hours) || DEFAULT_HOURS,
         storage: {
           region,
-          objectGb: Number(opts.storageObject) || 0,
-          blockGb: Number(opts.storageBlock) || 100,
-          fileGb: Number(opts.storageFile) || 0,
+          objectGb: opts.storageObject ?? 0,
+          blockGb: opts.storageBlock ?? 100,
+          fileGb: opts.storageFile ?? 0,
         },
         dbEngine: (opts.dbEngine as 'postgresql' | 'mysql' | 'sqlserver' | 'oracle' | 'none') || 'postgresql',
         dbTier: opts.dbTier,
-        dbStorageGb: Number(opts.dbStorage) || 100,
+        dbStorageGb: opts.dbStorage ?? 100,
         dbHa: Boolean(opts.dbHa),
-        k8sNodes: Number(opts.k8sNodes) || 0,
+        k8sNodes: opts.k8sNodes ?? 0,
         k8sNodeProfile: (opts.k8sNodeSize as SizeProfile) || 'medium',
         k8sControlPlane: Boolean(opts.k8sControlPlane),
-        networkEgressGb: Number(opts.networkEgress) || 100,
-        networkLoadBalancers: Number(opts.networkLb) || 1,
+        networkEgressGb: opts.networkEgress ?? 100,
+        networkLoadBalancers: opts.networkLb ?? 1,
         networkNat: Boolean(opts.networkNat),
       },
       estOpts,
@@ -509,6 +524,9 @@ program
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
   .option('-r, --region <region>', 'region id')
   .option('-s, --size <size>', `size profile`, parseProfile as (v: string) => SizeProfile)
+  .option('--instance <sku>', 'price a specific provider SKU (AWS/Azure/GCP) instead of a size profile')
+  .option('--ocpus <n>', 'OCI flex shape OCPUs (OCI only, with --memory)', parsePositive)
+  .option('--memory <gb>', 'OCI flex shape memory GB (OCI only, with --ocpus)', parseNonNegative)
   .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
   .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
   .option('--no-vat', 'exclude VAT')
@@ -525,7 +543,13 @@ program
     }
     const providerId = opts.provider as ProviderId;
     const regionId = resolveRegion(providerId, opts.region);
-    const size = opts.size ? (SKU_MAP[providerId]![opts.size as SizeProfile]!) : SKU_MAP[providerId]!.medium!;
+    const size = resolveSize({
+      providerId,
+      profile: opts.size as SizeProfile | undefined,
+      instance: opts.instance,
+      ocpus: opts.ocpus,
+      memory: opts.memory,
+    });
     await runEstimate(estOpts, { providerId, regionId, size, json: Boolean(opts.json) });
   });
 

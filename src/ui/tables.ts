@@ -26,7 +26,9 @@ export function renderEstimate(result: EstimateResult): void {
       : pc.dim(' (excl. VAT)');
   console.log('');
   console.log(`  ${pc.bold(result.providerName)} — ${result.regionName}`);
-  console.log(`  Instance: ${result.instance}  (${result.vcpu} vCPU / ${result.gb} GB)`);
+  const specs =
+    result.vcpu > 0 && result.gb > 0 ? `  (${result.vcpu} vCPU / ${result.gb} GB)` : '  (specs unavailable for this SKU)';
+  console.log(`  Instance: ${result.instance}${specs}`);
   console.log(`  Hourly:   ${fmtMoney(result.hourlyDisplay, result.currency)}`);
   console.log(`  Monthly:  ${pc.bold(fmtMoney(result.monthlyVat, result.currency))}${vatNote}`);
   if (!result.nativeSar) {

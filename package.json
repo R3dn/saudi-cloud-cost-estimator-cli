@@ -1,7 +1,7 @@
 {
   "name": "saudi-cloud-cost-estimator-cli",
   "version": "0.2.0",
-  "description": "Estimate and compare cloud costs for Saudi Arabia regions — in SAR, with 15% Saudi VAT. Covers Oracle Cloud (Riyadh/Jeddah), AWS (Bahrain), Azure (UAE) and Google Cloud (Dammam): compute, storage, database, Kubernetes and network, with price provenance.",
+  "description": "Estimate and compare cloud costs for Saudi Arabia regions — in SAR, with 15% Saudi VAT. Covers Oracle Cloud (Riyadh/Jeddah), AWS (Bahrain), Azure (UAE) and Google Cloud (Dammam): compute (general/memory/compute-optimized + GPU profiles, or any custom SKU), storage, database, Kubernetes and network, with price provenance on every line.",
   "type": "module",
   "license": "MIT",
   "author": "R3dn",
@@ -23,6 +23,7 @@
     "gcp",
     "oracle",
     "oci",
+    "gpu",
     "cli"
   ],
   "bin": {
@@ -43,6 +44,9 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude tests/cli-smoke.test.ts --exclude tests/cli-e2e.test.ts",
+    "test:cli": "npm run build && vitest run tests/cli-smoke.test.ts tests/cli-e2e.test.ts",
     "smoke": "node dist/index.js --help && node dist/index.js regions",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run build && npm run smoke"
   },
@@ -58,6 +62,7 @@
     "eslint": "^9.0.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.0",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^3.2.4"
   }
 }

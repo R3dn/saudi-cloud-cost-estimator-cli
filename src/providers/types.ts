@@ -10,4 +10,6 @@ export type {
   Provider,
   PriceSource,
   Component,
+  GpuSpec,
+  GcpSku,
 } from '../core/types.js';

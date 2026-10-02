@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { EstimateOptions, ProviderId, SizeProfile, SizeSpec } from '../core/types.js';
 import { providerList } from '../providers/index.js';
 import { SIZE_PROFILES, SKU_MAP } from '../data/sizes.js';
+import { PROFILE_SPECS } from '../data/sizes.js';
 import { getSarPerUsd } from '../core/fx.js';
 import { normalizeQuote } from '../core/pricing.js';
 import { renderCompare, fmtMoney, type CompareRow } from '../ui/tables.js';
@@ -93,7 +94,7 @@ export async function runCompare(opts: EstimateOptions, profile: SizeProfile, js
     return;
   }
 
-  const spec = `profile "${profile}" — ${SKU_MAP.oci[profile]!.vcpu} vCPU / ${SKU_MAP.oci[profile]!.gb} GB, ${opts.hours} hrs/month`;
+  const spec = `profile "${profile}" — ${PROFILE_SPECS[profile]!.vcpu} vCPU / ${PROFILE_SPECS[profile]!.gb} GB, ${opts.hours} hrs/month`;
   console.log(`\n${pc.bold('Cloud cost comparison')} — ${pc.cyan(spec)}`);
   const rows: CompareRow[] = results.map((r) =>
     r.error

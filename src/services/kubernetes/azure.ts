@@ -1,4 +1,4 @@
-import type { Currency, PriceSource, ServiceEstimateOptions } from '../../core/types.js';
+import type { Currency, PriceSource, ServiceEstimateOptions, SizeProfile } from '../../core/types.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { azureProvider } from '../../providers/azure.js';
 
@@ -8,7 +8,7 @@ import { azureProvider } from '../../providers/azure.js';
  * documented fact of the AKS free tier, labeled as such rather than a priced line.
  */
 export async function azureK8sPrices(
-  input: { region: string; nodeProfile: AzureNodeProfile },
+  input: { region: string; nodeProfile: SizeProfile },
   opts: ServiceEstimateOptions,
 ): Promise<{
   controlPlaneHourly: number;
@@ -29,5 +29,3 @@ export async function azureK8sPrices(
     warnings: ['AKS free-tier control plane has no hourly charge; the load balancer it creates is billed via the network command.'],
   };
 }
-
-type AzureNodeProfile = 'small' | 'medium' | 'large' | 'xlarge';

@@ -1,4 +1,4 @@
-import type { Currency, PriceSource, ServiceEstimateOptions } from '../../core/types.js';
+import type { Currency, PriceSource, ServiceEstimateOptions, SizeProfile } from '../../core/types.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { gcpProvider } from '../../providers/gcp.js';
 import { fetchGcpSkus, requireGcpKey, skuPrice, GCP_COMPUTE_SERVICE } from '../../providers/gcpCatalog.js';
@@ -9,7 +9,7 @@ import { fetchGcpSkus, requireGcpKey, skuPrice, GCP_COMPUTE_SERVICE } from '../.
  * only when the API is unreachable, explicitly labeled as an assumption.
  */
 export async function gcpK8sPrices(
-  input: { region: string; nodeProfile: GcpNodeProfile },
+  input: { region: string; nodeProfile: SizeProfile },
   opts: ServiceEstimateOptions,
 ): Promise<{
   controlPlaneHourly: number;
@@ -52,5 +52,3 @@ export async function gcpK8sPrices(
     warnings,
   };
 }
-
-type GcpNodeProfile = 'small' | 'medium' | 'large' | 'xlarge';

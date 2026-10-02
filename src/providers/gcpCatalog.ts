@@ -1,4 +1,5 @@
 import { fetchWithCache } from '../core/catalog.js';
+import type { GcpSku } from '../core/types.js';
 
 export const GCP_API = 'https://cloudbilling.googleapis.com/v1';
 export const GCP_COMPUTE_SERVICE = '6F81-5844-456A';
@@ -6,17 +7,7 @@ export const GCP_CLOUD_STORAGE_SERVICE = '95FF-2EF5-EC87';
 export const GCP_CLOUD_SQL_SERVICE = '5490-F7A7-A316';
 export const GCP_TTL_MS = 24 * 60 * 60 * 1000;
 
-export interface GcpSku {
-  description: string;
-  category: { resourceGroup: string; resourceFamily?: string; usageType: string };
-  serviceRegions: string[];
-  pricingInfo: {
-    pricingExpression: {
-      usageUnit: string;
-      tieredRates: { unitPrice: { units: string; nanos: number } }[];
-    };
-  }[];
-}
+export type { GcpSku } from '../core/types.js';
 
 interface GcpListResponse {
   skus: GcpSku[];

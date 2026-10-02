@@ -26,13 +26,18 @@ npm run smoke       # help + regions on the built CLI
 ```
 
 Run `npm run smoke` before opening a PR; CI (Linux + Windows, Node 20/22) runs the
-same checks.
+same checks. The project keeps a private test suite (not published in the package);
+if you have access to it, run `npm test` — unit, service, CLI smoke and e2e cases,
+all against mocked provider APIs with golden numbers, so no run ever hits live
+endpoints.
 
 ## Adding a provider
 
 1. Create `src/providers/<id>.ts` and a `src/providers/<id>Catalog.ts` for its shared
    API fetching; register it in `src/providers/index.ts`.
-2. Map size profiles in `src/data/sizes.ts`.
+2. Map every size profile in `src/data/sizes.ts` (all four families + GPU; unknown
+    offerings throw rather than approximate). GPU profiles must use a SKU/part that
+    verifiably exists in the region's catalog.
 3. Add per-service estimators under `src/services/<service>/<id>.ts` and register
    them in that service's estimate/compare registries.
 4. Verify the prices your adapter produces against the provider's official pricing

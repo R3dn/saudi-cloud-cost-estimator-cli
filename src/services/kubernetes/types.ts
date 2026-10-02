@@ -1,4 +1,4 @@
-import type { ServiceEstimate } from '../../core/types.js';
+import type { ServiceEstimate, SizeProfile } from '../../core/types.js';
 
 export interface K8sEstimate extends ServiceEstimate {
   components: {
@@ -10,6 +10,6 @@ export interface K8sEstimate extends ServiceEstimate {
 export interface K8sInput {
   region: string;
   nodeCount: number;
-  nodeProfile: 'small' | 'medium' | 'large' | 'xlarge';
+  nodeProfile: SizeProfile;
   controlPlane: boolean;
 }
