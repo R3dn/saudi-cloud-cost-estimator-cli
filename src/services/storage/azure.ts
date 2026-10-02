@@ -70,6 +70,7 @@ function bestItem(items: AzureItem[], predicate: (i: AzureItem) => boolean): Azu
   let best: AzureItem | null = null;
   for (const i of items) {
     if (!predicate(i)) continue;
+    if (i.retailPrice <= 0) continue;
     if (best === null || i.retailPrice < best.retailPrice) best = i;
   }
   return best;

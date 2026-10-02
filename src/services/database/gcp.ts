@@ -1,5 +1,6 @@
 import type { Currency, ServiceEstimateOptions } from '../../core/types.js';
 import type { DatabaseInput } from './types.js';
+import { ASSUMED_RATES } from '../../core/assumptions.js';
 import { fetchGcpSkus, requireGcpKey, skuPrice, GCP_CLOUD_SQL_SERVICE } from '../../providers/gcpCatalog.js';
 
 const TIER_NAME: Record<string, string> = {
@@ -51,15 +52,16 @@ export async function estimateGcpDatabase(
   }
 
   const haHourly = input.ha ? compute : 0;
+  const assumedStorage = ASSUMED_RATES.gcpCloudSqlStoragePerGbMonthUsd;
   return {
     computeMonthly: compute * opts.hours,
-    storageMonthly: (storage ?? 0.17) * input.storageGb,
+    storageMonthly: (storage ?? assumedStorage.rate) * input.storageGb,
     haMonthly: haHourly * opts.hours,
     iopsMonthly: 0,
     listedCurrency: 'USD',
-    skuRefs: { compute: instanceName, storage: storage !== undefined ? 'Cloud SQL storage per GB-month' : 'assumed $0.17/GB-month' },
+    skuRefs: { compute: instanceName, storage: storage !== undefined ? 'Cloud SQL storage per GB-month' : assumedStorage.skuRef },
     warnings: storage === undefined
-      ? ['Cloud SQL storage rate assumed at $0.17/GB-month (no matching SKU found).', 'HA modelled as a full standby replica at 100% of compute cost (assumption).']
+      ? [`Cloud SQL storage rate assumed at $${assumedStorage.rate}/GB-month (no matching SKU found).`, 'HA modelled as a full standby replica at 100% of compute cost (assumption).']
       : ['HA modelled as a full standby replica at 100% of compute cost (assumption).'],
   };
 }

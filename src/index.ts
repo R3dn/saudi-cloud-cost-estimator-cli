@@ -89,26 +89,43 @@ function resolveRegion(providerId: ProviderId, region: string | undefined): stri
   return providers[providerId]!.regions[0]!.id;
 }
 
-// ─── COMPUTE ───
-const compute = program.command('compute').description('Compute / VM estimation');
+type OutputFormat = 'table' | 'json' | 'csv';
 
-compute
-  .command('estimate')
-  .description('Estimate the monthly cost of a single instance (interactive when no options given)')
-  .option('-p, --provider <provider>', 'cloud provider (oci|aws|azure|gcp)', parseProvider)
-  .option('-r, --region <region>', 'region id, e.g. me-riyadh-1')
-  .option('-s, --size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile as (v: string) => SizeProfile)
-  .option('--instance <sku>', 'price a specific provider SKU (AWS/Azure/GCP) instead of a size profile')
-  .option('--ocpus <n>', 'OCI flex shape OCPUs (OCI only, with --memory)', parsePositive)
-  .option('--memory <gb>', 'OCI flex shape memory GB (OCI only, with --ocpus)', parseNonNegative)
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month (used for ALL hourly-billed services)', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude 15% Saudi VAT from totals')
-  .option('--no-cache', 'bypass the 24h price cache')
-  .option('--gcp-key <key>', 'Google Cloud API key (or set GOOGLE_CLOUD_API_KEY)')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON instead of a table')
-  .action(async (opts) => {
+function outputFormat(json: boolean | undefined, csv: boolean | undefined): OutputFormat {
+  if (json && csv) throw new InvalidArgumentError('--json and --csv are mutually exclusive');
+  if (json) return 'json';
+  if (csv) return 'csv';
+  return 'table';
+}
+
+/** Common flags shared by every pricing command — defined once, wired everywhere. */
+function commonFlags(cmd: Command): Command {
+  cmd.option('--currency <currency>', 'display currency', parseCurrency, 'SAR');
+  cmd.option('--hours <hours>', 'hours per month (used for ALL hourly-billed services)', parseHours, DEFAULT_HOURS);
+  cmd.option('--no-vat', 'exclude 15% Saudi VAT from totals');
+  cmd.option('--no-cache', 'bypass the 24h price cache');
+  cmd.option('--gcp-key <key>', 'Google Cloud API key (or set GOOGLE_CLOUD_API_KEY)');
+  cmd.option('--gcp-key-file <path>', 'read the Google Cloud API key from a file');
+  return cmd;
+}
+
+function outputFlags(cmd: Command, withCsv: boolean): Command {
+  cmd.option('--json', 'output JSON instead of a table');
+  if (withCsv) cmd.option('--csv', 'output CSV instead of a table');
+  return cmd;
+}
+
+function wireComputeEstimate(cmd: Command): Command {
+  cmd
+    .option('-p, --provider <provider>', 'cloud provider (oci|aws|azure|gcp)', parseProvider)
+    .option('-r, --region <region>', 'region id, e.g. me-riyadh-1')
+    .option('-s, --size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile as (v: string) => SizeProfile)
+    .option('--instance <sku>', 'price a specific provider SKU (AWS/Azure/GCP) instead of a size profile')
+    .option('--ocpus <n>', 'OCI flex shape OCPUs (OCI only, with --memory)', parsePositive)
+    .option('--memory <gb>', 'OCI flex shape memory GB (OCI only, with --ocpus)', parseNonNegative);
+  outputFlags(cmd, false);
+  commonFlags(cmd);
+  cmd.action(async (opts) => {
     const estOpts = baseOpts(opts);
     estOpts.hours = opts.hours;
     if (!opts.provider) {
@@ -126,95 +143,87 @@ compute
     });
     await runEstimate(estOpts, { providerId, regionId, size, json: Boolean(opts.json) });
   });
+  return cmd;
+}
 
-compute
-  .command('compare')
-  .description('Compare all providers side-by-side for a size profile')
-  .option('-s, --size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile, 'medium')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude 15% Saudi VAT from totals')
-  .option('--no-cache', 'bypass the 24h price cache')
-  .option('--gcp-key <key>', 'Google Cloud API key (or set GOOGLE_CLOUD_API_KEY)')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON instead of a table')
-  .action(async (opts) => {
+function wireComputeCompare(cmd: Command): Command {
+  cmd
+    .option('-s, --size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile, 'medium' as SizeProfile);
+  outputFlags(cmd, true);
+  commonFlags(cmd);
+  cmd.action(async (opts) => {
     const estOpts = baseOpts(opts);
     estOpts.hours = opts.hours;
-    await runCompare(estOpts, opts.size as SizeProfile, Boolean(opts.json));
+    await runCompare(estOpts, opts.size as SizeProfile, outputFormat(opts.json, opts.csv));
   });
+  return cmd;
+}
+
+// ─── COMPUTE ───
+const compute = program.command('compute').description('Compute / VM estimation');
+wireComputeEstimate(compute.command('estimate').description('Estimate the monthly cost of a single instance (interactive when no options given)'));
+wireComputeCompare(compute.command('compare').description('Compare all providers side-by-side for a size profile'));
 
 // ─── STORAGE ───
 const storage = program.command('storage').description('Storage cost estimation');
 
-storage
+const storageEstimateCmd = storage
   .command('estimate')
   .description('Estimate storage costs for a provider (interactive when no provider given)')
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
   .option('-r, --region <region>', 'region id')
   .option('--object <gb>', 'object storage GB', parseNonNegative, 0)
   .option('--block <gb>', 'block storage GB', parseNonNegative, 0)
-  .option('--file <gb>', 'file storage GB', parseNonNegative, 0)
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    if (!opts.provider) {
-      await interactiveStorage(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const region = resolveRegion(providerId, opts.region);
-    const input = {
-      region,
-      objectGb: Number(opts.object) || 0,
-      blockGb: Number(opts.block) || 0,
-      fileGb: Number(opts.file) || 0,
-    };
-    if (opts.json) {
-      const est = await storageEstimate(providerId, input, estOpts);
-      console.log(JSON.stringify(est, null, 2));
-      return;
-    }
-    const est = await storageEstimate(providerId, input, estOpts);
-    const { renderServiceEstimate } = await import('./ui/tables.js');
-    renderServiceEstimate(est, [
-      ['Object', `${input.objectGb} GB`],
-      ['Block', `${input.blockGb} GB`],
-      ['File', `${input.fileGb} GB`],
-    ]);
-  });
+  .option('--file <gb>', 'file storage GB', parseNonNegative, 0);
+outputFlags(storageEstimateCmd, false);
+commonFlags(storageEstimateCmd);
+storageEstimateCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  if (!opts.provider) {
+    await interactiveStorage(estOpts);
+    return;
+  }
+  const providerId = opts.provider as ProviderId;
+  const region = resolveRegion(providerId, opts.region);
+  const input = {
+    region,
+    objectGb: Number(opts.object) || 0,
+    blockGb: Number(opts.block) || 0,
+    fileGb: Number(opts.file) || 0,
+  };
+  const est = await storageEstimate(providerId, input, estOpts);
+  if (opts.json) {
+    console.log(JSON.stringify(est, null, 2));
+    return;
+  }
+  const { renderServiceEstimate } = await import('./ui/tables.js');
+  renderServiceEstimate(est, [
+    ['Object', `${input.objectGb} GB`],
+    ['Block', `${input.blockGb} GB`],
+    ['File', `${input.fileGb} GB`],
+  ]);
+});
 
-storage
+const storageCompareCmd = storage
   .command('compare')
   .description('Compare storage costs across all providers')
   .option('--object <gb>', 'object storage GB', parseNonNegative, 0)
   .option('--block <gb>', 'block storage GB', parseNonNegative, 0)
-  .option('--file <gb>', 'file storage GB', parseNonNegative, 0)
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    await storageCompare(
-      {
-        region: '', // each provider resolves its own first region when empty
-        objectGb: Number(opts.object) || 0,
-        blockGb: Number(opts.block) || 0,
-        fileGb: Number(opts.file) || 0,
-      },
-      baseOpts(opts),
-      Boolean(opts.json),
-    );
-  });
+  .option('--file <gb>', 'file storage GB', parseNonNegative, 0);
+outputFlags(storageCompareCmd, true);
+commonFlags(storageCompareCmd);
+storageCompareCmd.action(async (opts) => {
+  await storageCompare(
+    {
+      region: '', // each provider resolves its own first region when empty
+      objectGb: Number(opts.object) || 0,
+      blockGb: Number(opts.block) || 0,
+      fileGb: Number(opts.file) || 0,
+    },
+    baseOpts(opts),
+    outputFormat(opts.json, opts.csv),
+  );
+});
 
 // ─── DATABASE ───
 const database = program.command('database').description('Database cost estimation');
@@ -236,7 +245,7 @@ function parseDbTier(v: string) {
   return v as (typeof DB_TIERS)[number];
 }
 
-database
+const databaseEstimateCmd = database
   .command('estimate')
   .description('Estimate database costs (interactive when no provider given)')
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
@@ -244,200 +253,173 @@ database
   .option('-e, --engine <engine>', `database engine (${DB_ENGINES.join('|')})`, parseEngine, 'postgresql')
   .option('-t, --tier <tier>', `tier (${DB_TIERS.join('|')})`, parseDbTier, 'medium')
   .option('--storage <gb>', 'storage GB', parseNonNegative, 100)
-  .option('--ha', 'enable high availability')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    if (!opts.provider) {
-      await interactiveDatabase(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const region = resolveRegion(providerId, opts.region);
-    await runDatabaseEstimate(estOpts, {
-      providerId,
-      input: {
-        region,
-        engine: opts.engine,
-        tier: opts.tier,
-        storageGb: Number(opts.storage) || 100,
-        ha: Boolean(opts.ha),
-      },
-      json: Boolean(opts.json),
-    });
+  .option('--ha', 'enable high availability');
+outputFlags(databaseEstimateCmd, false);
+commonFlags(databaseEstimateCmd);
+databaseEstimateCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  if (!opts.provider) {
+    await interactiveDatabase(estOpts);
+    return;
+  }
+  const providerId = opts.provider as ProviderId;
+  const region = resolveRegion(providerId, opts.region);
+  await runDatabaseEstimate(estOpts, {
+    providerId,
+    input: {
+      region,
+      engine: opts.engine,
+      tier: opts.tier,
+      storageGb: Number(opts.storage) || 100,
+      ha: Boolean(opts.ha),
+    },
+    json: Boolean(opts.json),
   });
+});
 
-database
+const databaseCompareCmd = database
   .command('compare')
   .description('Compare database costs across all providers')
   .option('-e, --engine <engine>', `engine (${DB_ENGINES.join('|')})`, parseEngine, 'postgresql')
   .option('-t, --tier <tier>', `tier (${DB_TIERS.join('|')})`, parseDbTier, 'medium')
   .option('--storage <gb>', 'storage GB', parseNonNegative, 100)
-  .option('--ha', 'enable HA')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    await runDatabaseCompare(estOpts, {
+  .option('--ha', 'enable HA');
+outputFlags(databaseCompareCmd, true);
+commonFlags(databaseCompareCmd);
+databaseCompareCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  await runDatabaseCompare(
+    estOpts,
+    {
       region: '', // each provider resolves its own first region when empty
       engine: opts.engine,
       tier: opts.tier,
       storageGb: Number(opts.storage) || 100,
       ha: Boolean(opts.ha),
-    }, Boolean(opts.json));
-  });
+    },
+    outputFormat(opts.json, opts.csv),
+  );
+});
 
 // ─── KUBERNETES ───
 const k8s = program.command('k8s').description('Kubernetes cost estimation');
 
-k8s
+const k8sEstimateCmd = k8s
   .command('estimate')
   .description('Estimate Kubernetes costs for one provider (interactive when no provider given)')
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
   .option('-r, --region <region>', 'region id')
   .option('--nodes <n>', 'node count', parseNonNegative, 3)
   .option('--node-size <size>', `node size (${SIZE_PROFILES.join('|')})`, parseProfile, 'medium')
-  .option('--control-plane', 'managed control plane', false)
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    if (!opts.provider) {
-      await interactiveK8s(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const region = resolveRegion(providerId, opts.region);
-    const est = await k8sEstimate(providerId, {
-      region,
-      nodeCount: Number(opts.nodes) || 0,
-      nodeProfile: (opts.nodeSize as SizeProfile) || 'medium',
-      controlPlane: Boolean(opts.controlPlane),
-    }, estOpts);
-    if (opts.json) {
-      console.log(JSON.stringify(est, null, 2));
-      return;
-    }
-    const { renderServiceEstimate } = await import('./ui/tables.js');
-    renderServiceEstimate(est, [
-      ['Nodes', `${opts.nodes} × ${opts.nodeSize}`],
-      ['Control Plane', opts.controlPlane ? 'Yes' : 'No'],
-    ]);
-  });
+  .option('--control-plane', 'managed control plane', false);
+outputFlags(k8sEstimateCmd, false);
+commonFlags(k8sEstimateCmd);
+k8sEstimateCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  if (!opts.provider) {
+    await interactiveK8s(estOpts);
+    return;
+  }
+  const providerId = opts.provider as ProviderId;
+  const region = resolveRegion(providerId, opts.region);
+  const est = await k8sEstimate(providerId, {
+    region,
+    nodeCount: Number(opts.nodes) || 0,
+    nodeProfile: (opts.nodeSize as SizeProfile) || 'medium',
+    controlPlane: Boolean(opts.controlPlane),
+  }, estOpts);
+  if (opts.json) {
+    console.log(JSON.stringify(est, null, 2));
+    return;
+  }
+  const { renderServiceEstimate } = await import('./ui/tables.js');
+  renderServiceEstimate(est, [
+    ['Nodes', `${opts.nodes} × ${opts.nodeSize}`],
+    ['Control Plane', opts.controlPlane ? 'Yes' : 'No'],
+  ]);
+});
 
-k8s
+const k8sCompareCmd = k8s
   .command('compare')
   .description('Compare Kubernetes costs across all providers')
   .option('--nodes <n>', 'node count', parseNonNegative, 3)
   .option('--node-size <size>', `node size (${SIZE_PROFILES.join('|')})`, parseProfile, 'medium')
-  .option('--control-plane', 'managed control plane')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    await k8sCompare(
-      {
-        region: '', // each provider resolves its own first region when empty
-        nodeCount: Number(opts.nodes) || 3,
-        nodeProfile: (opts.nodeSize as SizeProfile) || 'medium',
-        controlPlane: Boolean(opts.controlPlane),
-      },
-      baseOpts(opts),
-      Boolean(opts.json),
-    );
-  });
+  .option('--control-plane', 'managed control plane');
+outputFlags(k8sCompareCmd, true);
+commonFlags(k8sCompareCmd);
+k8sCompareCmd.action(async (opts) => {
+  await k8sCompare(
+    {
+      region: '', // each provider resolves its own first region when empty
+      nodeCount: Number(opts.nodes) || 3,
+      nodeProfile: (opts.nodeSize as SizeProfile) || 'medium',
+      controlPlane: Boolean(opts.controlPlane),
+    },
+    baseOpts(opts),
+    outputFormat(opts.json, opts.csv),
+  );
+});
 
 // ─── NETWORK ───
 const network = program.command('network').description('Network cost estimation');
 
-network
+const networkEstimateCmd = network
   .command('estimate')
   .description('Estimate network costs (interactive when no provider given)')
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
   .option('-r, --region <region>', 'region id')
   .option('--egress <gb>', 'egress GB', parseNonNegative, 0)
   .option('--lb <n>', 'load balancer count', parseNonNegative, 0)
-  .option('--nat', 'include NAT gateway')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    if (!opts.provider) {
-      await interactiveNetwork(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const region = resolveRegion(providerId, opts.region);
-    await runNetworkEstimate(estOpts, {
-      providerId,
-      regionId: region,
-      input: {
-        region,
-        egressGb: Number(opts.egress) || 0,
-        loadBalancers: Number(opts.lb) || 0,
-        nat: Boolean(opts.nat),
-      },
-      json: Boolean(opts.json),
-    });
+  .option('--nat', 'include NAT gateway');
+outputFlags(networkEstimateCmd, false);
+commonFlags(networkEstimateCmd);
+networkEstimateCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  if (!opts.provider) {
+    await interactiveNetwork(estOpts);
+    return;
+  }
+  const providerId = opts.provider as ProviderId;
+  const region = resolveRegion(providerId, opts.region);
+  await runNetworkEstimate(estOpts, {
+    providerId,
+    regionId: region,
+    input: {
+      region,
+      egressGb: Number(opts.egress) || 0,
+      loadBalancers: Number(opts.lb) || 0,
+      nat: Boolean(opts.nat),
+    },
+    json: Boolean(opts.json),
   });
+});
 
-network
+const networkCompareCmd = network
   .command('compare')
   .description('Compare network costs across all providers')
   .option('--egress <gb>', 'egress GB', parseNonNegative, 0)
   .option('--lb <n>', 'load balancer count', parseNonNegative, 0)
-  .option('--nat', 'include NAT')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    const input = {
-      region: '', // each provider resolves its own first region when empty
-      egressGb: Number(opts.egress) || 0,
-      loadBalancers: Number(opts.lb) || 0,
-      nat: Boolean(opts.nat),
-    };
-    await runNetworkCompare(estOpts, input, Boolean(opts.json));
-  });
+  .option('--nat', 'include NAT');
+outputFlags(networkCompareCmd, true);
+commonFlags(networkCompareCmd);
+networkCompareCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  const input = {
+    region: '', // each provider resolves its own first region when empty
+    egressGb: Number(opts.egress) || 0,
+    loadBalancers: Number(opts.lb) || 0,
+    nat: Boolean(opts.nat),
+  };
+  await runNetworkCompare(estOpts, input, outputFormat(opts.json, opts.csv));
+});
 
 // ─── TCO ───
-program
+const tcoCmd = program
   .command('tco')
   .description('Total cost of ownership: compute + storage + database (optional) + k8s (optional) + network')
   .option('-p, --provider <provider>', 'cloud provider', parseProvider)
   .option('-r, --region <region>', 'region id')
   .option('--compute-size <size>', `size profile (${SIZE_PROFILES.join('|')})`, parseProfile, 'medium')
-  .option('--hours <hours>', 'hours per month (used for ALL hourly-billed services)', parseHours, DEFAULT_HOURS)
   .option('--storage-object <gb>', 'object storage GB', parseNonNegative, 0)
   .option('--storage-block <gb>', 'block storage GB', parseNonNegative, 100)
   .option('--storage-file <gb>', 'file storage GB', parseNonNegative, 0)
@@ -456,127 +438,82 @@ program
   .option('--network-egress <gb>', 'network egress GB', parseNonNegative, 100)
   .option('--network-lb <n>', 'load balancer count', parseNonNegative, 1)
   .option('--network-nat', 'include NAT gateway')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    estOpts.hours = opts.hours;
-    if (!opts.provider) {
-      await interactiveTco(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const region = resolveRegion(providerId, opts.region);
-    const result = await runTco(
-      {
-        providerId,
+  .option('--json', 'output JSON');
+commonFlags(tcoCmd);
+tcoCmd.action(async (opts) => {
+  const estOpts = baseOpts(opts);
+  if (!opts.provider) {
+    await interactiveTco(estOpts);
+    return;
+  }
+  const providerId = opts.provider as ProviderId;
+  const region = resolveRegion(providerId, opts.region);
+  const result = await runTco(
+    {
+      providerId,
+      region,
+      computeProfile: (opts.computeSize as SizeProfile) || 'medium',
+      hours: Number(opts.hours) || DEFAULT_HOURS,
+      storage: {
         region,
-        computeProfile: (opts.computeSize as SizeProfile) || 'medium',
-        hours: Number(opts.hours) || DEFAULT_HOURS,
-        storage: {
-          region,
-          objectGb: opts.storageObject ?? 0,
-          blockGb: opts.storageBlock ?? 100,
-          fileGb: opts.storageFile ?? 0,
-        },
-        dbEngine: (opts.dbEngine as 'postgresql' | 'mysql' | 'sqlserver' | 'oracle' | 'none') || 'postgresql',
-        dbTier: opts.dbTier,
-        dbStorageGb: opts.dbStorage ?? 100,
-        dbHa: Boolean(opts.dbHa),
-        k8sNodes: opts.k8sNodes ?? 0,
-        k8sNodeProfile: (opts.k8sNodeSize as SizeProfile) || 'medium',
-        k8sControlPlane: Boolean(opts.k8sControlPlane),
-        networkEgressGb: opts.networkEgress ?? 100,
-        networkLoadBalancers: opts.networkLb ?? 1,
-        networkNat: Boolean(opts.networkNat),
+        objectGb: opts.storageObject ?? 0,
+        blockGb: opts.storageBlock ?? 100,
+        fileGb: opts.storageFile ?? 0,
       },
-      estOpts,
-    );
-    if (opts.json) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-    const sym = result.currency === 'SAR' ? 'SAR ' : '$';
-    const vatNote = result.totalMonthlyVat !== result.totalMonthly ? ' (incl. 15% VAT*)' : ' (excl. VAT)';
-    console.log(`\n${pc.bold(result.providerName)} — ${pc.cyan(result.regionName)}`);
-    console.log(`  ${pc.bold('Total Monthly:')} ${sym}${result.totalMonthlyVat.toFixed(2)}${pc.dim(vatNote)}`);
-    console.log(`  Compute:      ${sym}${result.services.compute.monthlyVat.toFixed(2)}`);
-    console.log(`  Storage:      ${sym}${result.services.storage.monthlyVat.toFixed(2)}`);
-    if (result.services.database.monthly > 0 || result.services.database.monthlyVat > 0) {
-      console.log(`  Database:     ${sym}${result.services.database.monthlyVat.toFixed(2)}`);
-    }
-    if (result.services.kubernetes.monthly > 0 || result.services.kubernetes.monthlyVat > 0) {
-      console.log(`  Kubernetes:   ${sym}${result.services.kubernetes.monthlyVat.toFixed(2)}`);
-    }
-    console.log(`  Network:      ${sym}${result.services.network.monthlyVat.toFixed(2)}`);
-    for (const w of result.warnings) console.log(pc.yellow(`  Note: ${w}`));
-    if (result.warnings.length > 0) console.log('');
-  });
+      dbEngine: (opts.dbEngine as 'postgresql' | 'mysql' | 'sqlserver' | 'oracle' | 'none') || 'postgresql',
+      dbTier: opts.dbTier,
+      dbStorageGb: opts.dbStorage ?? 100,
+      dbHa: Boolean(opts.dbHa),
+      k8sNodes: opts.k8sNodes ?? 0,
+      k8sNodeProfile: (opts.k8sNodeSize as SizeProfile) || 'medium',
+      k8sControlPlane: Boolean(opts.k8sControlPlane),
+      networkEgressGb: opts.networkEgress ?? 100,
+      networkLoadBalancers: opts.networkLb ?? 1,
+      networkNat: Boolean(opts.networkNat),
+    },
+    estOpts,
+  );
+  if (opts.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  const sym = result.currency === 'SAR' ? 'SAR ' : '$';
+  const vatNote = result.totalMonthlyVat !== result.totalMonthly ? ' (incl. 15% VAT*)' : ' (excl. VAT)';
+  console.log(`\n${pc.bold(result.providerName)} — ${pc.cyan(result.regionName)}`);
+  console.log(`  ${pc.bold('Total Monthly:')} ${sym}${result.totalMonthlyVat.toFixed(2)}${pc.dim(vatNote)}`);
+  console.log(`  Compute:      ${sym}${result.services.compute.monthlyVat.toFixed(2)}`);
+  console.log(`  Storage:      ${sym}${result.services.storage.monthlyVat.toFixed(2)}`);
+  if (result.services.database.monthly > 0 || result.services.database.monthlyVat > 0) {
+    console.log(`  Database:     ${sym}${result.services.database.monthlyVat.toFixed(2)}`);
+  }
+  if (result.services.kubernetes.monthly > 0 || result.services.kubernetes.monthlyVat > 0) {
+    console.log(`  Kubernetes:   ${sym}${result.services.kubernetes.monthlyVat.toFixed(2)}`);
+  }
+  console.log(`  Network:      ${sym}${result.services.network.monthlyVat.toFixed(2)}`);
+  for (const w of result.warnings) console.log(pc.yellow(`  Note: ${w}`));
+  if (result.warnings.length > 0) console.log('');
+});
 
 // ─── BACKWARD COMPATIBLE TOP-LEVEL ALIASES ───
-program
-  .command('estimate')
-  .description('Alias for "compute estimate"')
-  .option('-p, --provider <provider>', 'cloud provider', parseProvider)
-  .option('-r, --region <region>', 'region id')
-  .option('-s, --size <size>', `size profile`, parseProfile as (v: string) => SizeProfile)
-  .option('--instance <sku>', 'price a specific provider SKU (AWS/Azure/GCP) instead of a size profile')
-  .option('--ocpus <n>', 'OCI flex shape OCPUs (OCI only, with --memory)', parsePositive)
-  .option('--memory <gb>', 'OCI flex shape memory GB (OCI only, with --ocpus)', parseNonNegative)
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    estOpts.hours = opts.hours;
-    if (!opts.provider) {
-      await interactiveMode(estOpts);
-      return;
-    }
-    const providerId = opts.provider as ProviderId;
-    const regionId = resolveRegion(providerId, opts.region);
-    const size = resolveSize({
-      providerId,
-      profile: opts.size as SizeProfile | undefined,
-      instance: opts.instance,
-      ocpus: opts.ocpus,
-      memory: opts.memory,
-    });
-    await runEstimate(estOpts, { providerId, regionId, size, json: Boolean(opts.json) });
-  });
-
-program
-  .command('compare')
-  .description('Alias for "compute compare"')
-  .option('-s, --size <size>', `size profile`, parseProfile, 'medium')
-  .option('--currency <currency>', 'display currency', parseCurrency, 'SAR')
-  .option('--hours <hours>', 'hours per month', parseHours, DEFAULT_HOURS)
-  .option('--no-vat', 'exclude VAT')
-  .option('--no-cache', 'bypass cache')
-  .option('--gcp-key <key>', 'Google Cloud API key')
-  .option('--gcp-key-file <path>', 'read the Google Cloud API key from a file')
-  .option('--json', 'output JSON')
-  .action(async (opts) => {
-    const estOpts = baseOpts(opts);
-    estOpts.hours = opts.hours;
-    await runCompare(estOpts, opts.size as SizeProfile, Boolean(opts.json));
-  });
+wireComputeEstimate(
+  program
+    .command('estimate')
+    .description('Alias for "compute estimate"'),
+);
+wireComputeCompare(
+  program
+    .command('compare')
+    .description('Alias for "compute compare"'),
+);
 
 // ─── REGIONS & CACHE ───
-program
+const regionsCmd = program
   .command('regions')
   .description('List supported regions and their KSA availability notes')
-  .action(() => {
-    runRegions();
-  });
+  .option('--json', 'output JSON');
+regionsCmd.action((opts) => {
+  runRegions(Boolean(opts.json));
+});
 
 const cache = program.command('cache').description('cache utilities');
 

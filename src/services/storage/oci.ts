@@ -1,5 +1,4 @@
-import { getCache, putCache } from '../../core/cache.js';
-import type { Currency } from '../../core/types.js';
+﻿import type { Currency } from '../../core/types.js';
 import type { StorageInput } from './types.js';
 import {
   fetchOciPriceList,
@@ -63,4 +62,3 @@ export async function ociStorageRates(input: StorageInput, opts: { currency: Cur
   };
 }
 
-export { getCache, putCache };

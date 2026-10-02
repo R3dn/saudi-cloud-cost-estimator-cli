@@ -1,4 +1,4 @@
-import type { Currency, ServiceEstimateOptions } from '../../core/types.js';
+﻿import type { Currency, ServiceEstimateOptions } from '../../core/types.js';
 import type { DatabaseInput } from './types.js';
 import { fetchAwsOfferRows, bestPrice } from '../../providers/awsCatalog.js';
 
@@ -23,6 +23,8 @@ export async function estimateAwsDatabase(
   storageMonthly: number;
   haMonthly: number;
   iopsMonthly: number;
+  iopsSource: 'live' | 'assumption';
+  iopsSkuRef: string;
   listedCurrency: Currency;
   skuRefs: { compute: string; storage: string };
   warnings: string[];
@@ -36,7 +38,7 @@ export async function estimateAwsDatabase(
   const rows = await fetchAwsOfferRows('AmazonRDS', input.region, opts.noCache);
   const deployment = input.ha ? 'Multi-AZ' : 'Single-AZ';
 
-  const priceFor = (dep: string) =>
+  const priceFor = (deploy: string) =>
     bestPrice(
       rows,
       (r) =>
@@ -44,7 +46,7 @@ export async function estimateAwsDatabase(
         r['Product Family'] === 'Database Instance' &&
         r['Instance Type'] === instanceType &&
         r['Database Engine'] === engineName &&
-        r['Deployment Option'] === dep,
+        r['Deployment Option'] === deploy,
     );
 
   const singleAz = priceFor('Single-AZ');
@@ -56,14 +58,39 @@ export async function estimateAwsDatabase(
     throw new Error(`AWS RDS ${instanceType} ${engineName} Multi-AZ not found in ${input.region}`);
   }
 
-  const storageRate = bestPrice(
+  const usageOf = (r: Record<string, string>) => r['usageType'] ?? r['Usage Type'] ?? '';
+  const engineNameLower = engineName.toLowerCase();
+  const storageDep = deployment;
+
+  // gp3 storage: the RDS offer prices GP3 storage per engine and deployment option.
+  const gp3Storage = bestPrice(
     rows,
     (r) =>
       r['TermType'] === 'OnDemand' &&
       r['Product Family'] === 'Database Storage' &&
-      /gp/i.test((r['Volume Type'] ?? r['usageType'] ?? '').toLowerCase()) &&
-      /gb/i.test((r['Unit'] ?? '').toLowerCase()) &&
-      /mo/i.test((r['Unit'] ?? '').toLowerCase()),
+      /gp3/i.test(r['Volume Type'] ?? '') &&
+      r['Unit'] === 'GB-Mo' &&
+      (r['Database Engine'] ?? '').toLowerCase() === engineNameLower &&
+      r['Deployment Option'] === storageDep,
+  );
+  // Provisioned IOPS for gp3 (single-AZ baseline): live per-IOPS-month row.
+  const gp3Iops = bestPrice(
+    rows,
+    (r) =>
+      r['TermType'] === 'OnDemand' &&
+      /GP3-PIOPS/i.test(usageOf(r)) &&
+      r['Unit'] === 'IOPS-Mo' &&
+      (r['Database Engine'] ?? '').toLowerCase() === engineNameLower &&
+      r['Deployment Option'] === storageDep,
+  );
+  const storageRate = gp3Storage ?? bestPrice(
+    rows,
+    (r) =>
+      r['TermType'] === 'OnDemand' &&
+      r['Product Family'] === 'Database Storage' &&
+      /gp/i.test((r['Volume Type'] ?? usageOf(r)).toLowerCase()) &&
+      r['Unit'] === 'GB-Mo' &&
+      (r['Database Engine'] ?? '').toLowerCase() === engineNameLower,
   );
   if (storageRate === null) {
     throw new Error(`AWS RDS gp storage price not found in ${input.region}`);
@@ -77,11 +104,13 @@ export async function estimateAwsDatabase(
     computeMonthly: singleAz * opts.hours,
     storageMonthly: storageRate * input.storageGb,
     haMonthly: haHourly * opts.hours,
-    iopsMonthly: (input.iops ?? 0) * 0.1,
+    iopsMonthly: gp3Iops !== null ? (input.iops ?? 0) * gp3Iops : 0,
+    iopsSource: gp3Iops !== null ? ('live' as const) : ('assumption' as const),
+    iopsSkuRef: gp3Iops !== null ? 'RDS gp3 provisioned IOPS (per IOPS-month)' : 'not priced by the API',
     listedCurrency: 'USD',
     skuRefs: {
       compute: `${instanceType} ${engineName} ${deployment}`,
-      storage: 'RDS gp storage per GB-month',
+      storage: gp3Storage !== null ? 'RDS gp3 storage per GB-month' : 'RDS gp storage per GB-month',
     },
     warnings,
   };

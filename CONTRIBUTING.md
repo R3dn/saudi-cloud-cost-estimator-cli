@@ -21,15 +21,18 @@ Thanks for your interest in improving the Saudi Cloud Cost Estimator.
 npm install
 npm run typecheck
 npm run lint
+npm run test:unit   # or npm test for everything incl. CLI e2e
 npm run build
 npm run smoke       # help + regions on the built CLI
 ```
 
-Run `npm run smoke` before opening a PR; CI (Linux + Windows, Node 20/22) runs the
-same checks. The project keeps a private test suite (not published in the package);
-if you have access to it, run `npm test` — unit, service, CLI smoke and e2e cases,
-all against mocked provider APIs with golden numbers, so no run ever hits live
-endpoints.
+Run `npm run smoke` before opening a PR; CI (Linux + Windows, Node 20/22) runs
+the same checks plus the unit/fixture tests on every push, and a dedicated job
+runs the CLI smoke + end-to-end suites. All tests run against **mocked provider
+APIs** (mock data derived from the providers' published rate tables) plus
+recorded fixtures in `tests/fixtures/` — no test run ever hits a live endpoint.
+Golden numbers must be derived from the provider's own pricing page, not from
+the current implementation output.
 
 ## Adding a provider
 
@@ -47,16 +50,17 @@ endpoints.
 
 1. `src/services/<service>/types.ts` — inputs and an estimate extending
    `ServiceEstimate` (components with provenance + `warnings`).
-2. One estimator per provider + a registry in `estimate.ts`; `compare.ts` renders via
-   `renderEstimateList` and emits the standard JSON envelope
-   `{ input, currency, vat, hours, rows[] }`.
+2. One estimator per provider + a registry in `estimate.ts`; `compare.ts` uses
+   `runAcrossProviders` + `compareEnvelope` and emits the standard JSON envelope
+   `{ input, currency, vat, hours, rows[] }` (CSV via `renderCompareCsv`).
 3. Wire the CLI in `src/index.ts` (estimate + compare subcommands, non-negative
-   parsers for quantities, `--hours` threaded through).
+   parsers for quantities, `--hours` threaded through, `--csv` on compares).
 
 ## Conventions
 
 - ESM + NodeNext; relative imports need `.js` extensions.
 - Strict TypeScript (`noUncheckedIndexedAccess` on).
-- No comments unless requested; keep output text concise.
+- Comments are for pricing semantics (tier structures, free allowances, why a
+  filter matches what it matches) — not for restating the code.
 - Region-reality notes (AWS KSA announced, Azure KSA unpriced, Alibaba/Huawei no API)
   belong in provider region notes and `src/cli/regions.ts`.

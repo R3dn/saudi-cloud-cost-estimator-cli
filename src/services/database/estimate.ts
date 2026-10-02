@@ -1,8 +1,8 @@
-import type { Currency, ProviderId, ServiceEstimateOptions } from '../../core/types.js';
+﻿import type { Currency, ProviderId, ServiceEstimateOptions } from '../../core/types.js';
 import { getSarPerUsd } from '../../core/fx.js';
-import { convertCurrency, normalizeMonthly } from '../../core/normalization.js';
+import { normalizeMonthly, componentConverter } from '../../core/normalization.js';
 import { providers } from '../../providers/index.js';
-import { assertRegion } from '../../providers/oci.js';
+import { assertRegion } from '../../core/regions.js';
 import type { DatabaseEstimate, DatabaseInput } from './types.js';
 import { estimateOciDatabase } from './oci.js';
 import { estimateAwsDatabase } from './aws.js';
@@ -14,6 +14,9 @@ export interface DbRawEstimate {
   storageMonthly: number;
   haMonthly: number;
   iopsMonthly: number;
+  /** Provenance override for the IOPS component; defaults to 'assumption' when absent. */
+  iopsSource?: 'live' | 'assumption';
+  iopsSkuRef?: string;
   listedCurrency: Currency;
   skuRefs: { compute: string; storage: string };
   warnings: string[];
@@ -48,10 +51,9 @@ export async function databaseEstimate(
     withVat: opts.vat,
     country: region?.country,
   });
-  const conv = (amount: number) =>
-    convertCurrency({ amount, listedCurrency: raw.listedCurrency, displayCurrency: opts.currency, fxRate: fx.sarPerUsd });
+  const conv = componentConverter(raw.listedCurrency, opts.currency, fx.sarPerUsd);
 
-  const iopsSource = raw.iopsMonthly > 0 ? 'live' : 'assumption';
+  const iopsSource: 'live' | 'assumption' = raw.iopsMonthly > 0 ? (raw.iopsSource ?? 'live') : 'assumption';
   return {
     provider: providerId,
     providerName: provider.name,
@@ -65,7 +67,7 @@ export async function databaseEstimate(
     components: {
       compute: { monthly: conv(raw.computeMonthly), source: 'live', skuRef: raw.skuRefs.compute },
       storage: { monthly: conv(raw.storageMonthly), source: 'live', skuRef: raw.skuRefs.storage },
-      iops: { monthly: conv(raw.iopsMonthly), source: iopsSource, skuRef: raw.iopsMonthly > 0 ? 'RDS provisioned IOPS' : 'not requested' },
+      iops: { monthly: conv(raw.iopsMonthly), source: iopsSource, skuRef: raw.iopsMonthly > 0 ? (raw.iopsSkuRef ?? 'RDS provisioned IOPS') : 'not requested' },
       ha: { monthly: conv(raw.haMonthly), source: 'live', skuRef: input.ha ? 'HA delta' : 'not requested' },
     },
     warnings: raw.warnings,

@@ -15,6 +15,89 @@ export interface AwsCsvRow extends Record<string, string> {
   'Pre Installed S/W': string;
 }
 
+/**
+ * Columns the estimators filter on. Caching the full ~40-84-column bulk CSV as
+ * parsed JSON wastes hundreds of MB; only these are ever read. AWS bulk CSVs
+ * use camelCase for these fields (StartingRange, usageType) — the projection
+ * normalizes nothing, it only selects.
+ */
+const CACHED_COLUMNS = [
+  'TermType',
+  'PriceDescription',
+  'StartingRange',
+  'EndingRange',
+  'Starting Range',
+  'Ending Range',
+  'Unit',
+  'PricePerUnit',
+  'Currency',
+  'Product Family',
+  'serviceCode',
+  'Location',
+  'Instance Type',
+  'Current Generation',
+  'Instance Family',
+  'vCPU',
+  'Memory',
+  'Operating System',
+  'Tenancy',
+  'Pre Installed S/W',
+  'CapacityStatus',
+  'License Model',
+  'Volume Type',
+  'Database Engine',
+  'Deployment Option',
+  'Storage Class',
+  'Transfer Type',
+  'From Location',
+  'To Location',
+  'usageType',
+  'Usage Type',
+  'Region Code',
+  'Region Name',
+  'GPU',
+  'GPU Model',
+] as const;
+
+/**
+ * Keeps the rows the estimators can ever match: OnDemand terms and the small set
+ * of product families priced by this tool. Reserved/SavePlan rows (~75% of the
+ * EC2 file) are dropped before caching.
+ */
+function relevantRow(r: Record<string, string>): boolean {
+  const term = r['TermType'];
+  if (term !== 'OnDemand') return false;
+  const family = r['Product Family'] ?? '';
+  const usage = r['usageType'] ?? r['Usage Type'] ?? '';
+  if (
+    family === 'Compute Instance' ||
+    family === 'Compute Instance (bare metal)' ||
+    family === 'Storage' ||
+    family === 'Database Instance' ||
+    family === 'Database Storage' ||
+    family === 'Load Balancer-Application' ||
+    family === 'Load Balancer-Network' ||
+    family === 'NAT Gateway' ||
+    family === 'Data Transfer' ||
+    /EKS-Hours:perCluster/i.test(usage) ||
+    /NatGateway-Hours/i.test(usage) ||
+    /LoadBalancerUsage/i.test(usage) ||
+    /TimedStorage-ByteHrs/i.test(usage)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function projectRow(r: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const col of CACHED_COLUMNS) {
+    const v = r[col];
+    if (v !== undefined && v !== '') out[col] = v;
+  }
+  return out;
+}
+
 async function regionCsvUrl(offerCode: string, region: string): Promise<string> {
   const indexUrl = `${AWS_BASE}/offers/v1.0/aws/${offerCode}/current/region_index.json`;
   const res = await fetch(indexUrl, { signal: AbortSignal.timeout(30_000) });
@@ -31,6 +114,8 @@ async function regionCsvUrl(offerCode: string, region: string): Promise<string> 
  * Fetches and caches the parsed rows of an AWS bulk-pricing offer CSV for a region.
  * Shared across compute/storage/database/network/EKS so the ~70MB EC2 file is
  * downloaded and parsed at most once per run (in-flight dedupe in fetchWithCache).
+ * Only OnDemand rows of relevant product families are kept, projected to the
+ * columns the estimators read — the cache stays a few MB instead of hundreds.
  */
 export async function fetchAwsOfferRows(
   offerCode: string,
@@ -38,7 +123,7 @@ export async function fetchAwsOfferRows(
   noCache: boolean,
   opts: { requireMinTypes?: { min: number; what: string } } = {},
 ): Promise<Record<string, string>[]> {
-  const cacheKey = `aws-rows-${offerCode}-${region}`;
+  const cacheKey = `aws-rows-v2-${offerCode}-${region}`;
   const { data } = await fetchWithCache<Record<string, string>[]>({
     key: cacheKey,
     ttlMs: AWS_TTL_MS,
@@ -46,7 +131,7 @@ export async function fetchAwsOfferRows(
     fetcher: async () => {
       const csvUrl = await regionCsvUrl(offerCode, region);
       const csv = await downloadResumable(csvUrl);
-      return parseAwsCsvRows(csv);
+      return parseAwsCsvRows(csv).filter(relevantRow).map(projectRow);
     },
   });
   if (opts.requireMinTypes) {

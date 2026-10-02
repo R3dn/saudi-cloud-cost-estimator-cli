@@ -1,6 +1,6 @@
-import type { EstimateOptions, PriceQuote, Provider, SizeSpec } from './types.js';
+import type { EstimateOptions, PriceQuote, Provider, SizeSpec } from '../core/types.js';
+import { assertRegion } from '../core/regions.js';
 import { fetchAzureItems } from './azureCatalog.js';
-import { assertRegion } from './oci.js';
 
 export const azureProvider: Provider = {
   id: 'azure',
@@ -43,7 +43,11 @@ async function fetchVmPrice(region: string, sku: string, noCache: boolean): Prom
   if (candidates.length === 0) {
     throw new Error(`Azure ${sku} not found in ${region} consumption Linux pricing`);
   }
-  const best = candidates.reduce((a, b) => (b.retailPrice < a.retailPrice ? b : a));
+  const priced = candidates.filter((i) => i.retailPrice > 0);
+  if (priced.length === 0) {
+    throw new Error(`Azure ${sku} not found in ${region} consumption Linux pricing`);
+  }
+  const best = priced.reduce((a, b) => (b.retailPrice < a.retailPrice ? b : a));
   return best.retailPrice;
 }
 

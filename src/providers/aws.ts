@@ -1,4 +1,4 @@
-import type { EstimateOptions, PriceQuote, Provider, SizeSpec } from './types.js';
+import type { EstimateOptions, PriceQuote, Provider, SizeSpec } from '../core/types.js';
 import { fetchAwsOfferRows, bestPrice, MIN_INSTANCE_TYPES } from './awsCatalog.js';
 
 export const awsProvider: Provider = {
@@ -95,5 +95,3 @@ function parseGpu(count: string | undefined, model: string | undefined): { count
   if (n === undefined || !model) return undefined;
   return { count: n, model };
 }
-
-export { downloadResumable } from './awsDownload.js';

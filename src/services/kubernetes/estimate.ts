@@ -1,8 +1,8 @@
-import type { Component, ProviderId, ServiceEstimateOptions } from '../../core/types.js';
+﻿import type { Component, ProviderId, ServiceEstimateOptions } from '../../core/types.js';
 import { getSarPerUsd } from '../../core/fx.js';
-import { convertCurrency, normalizeMonthly } from '../../core/normalization.js';
+import { normalizeMonthly, componentConverter } from '../../core/normalization.js';
 import { providers } from '../../providers/index.js';
-import { assertRegion } from '../../providers/oci.js';
+import { assertRegion } from '../../core/regions.js';
 import type { K8sEstimate, K8sInput } from './types.js';
 import { awsK8sPrices } from './aws.js';
 import { azureK8sPrices } from './azure.js';
@@ -51,8 +51,7 @@ export async function k8sEstimate(
     country: region?.country,
   });
 
-  const conv = (amount: number) =>
-    convertCurrency({ amount, listedCurrency: prices.listedCurrency, displayCurrency: opts.currency, fxRate: fx.sarPerUsd });
+  const conv = componentConverter(prices.listedCurrency, opts.currency, fx.sarPerUsd);
 
   const controlPlaneComp: Component = {
     monthly: conv(controlPlaneMonthly),

@@ -1,5 +1,6 @@
 import type { Currency } from '../../core/types.js';
 import type { StorageInput } from './types.js';
+import { ASSUMED_RATES } from '../../core/assumptions.js';
 import { fetchGcpSkus, requireGcpKey, skuPrice, GCP_CLOUD_STORAGE_SERVICE, GCP_COMPUTE_SERVICE } from '../../providers/gcpCatalog.js';
 
 /**
@@ -43,16 +44,16 @@ export async function gcpStorageRates(
   if (object === null) throw new Error(`GCP Cloud Storage standard price not found in ${input.region}`);
   if (block === null) throw new Error(`GCP Persistent Disk SSD price not found in ${input.region}`);
 
-  const FILESTORE_ASSUMED_PER_GB_MONTH = 0.3;
+  const assumedFile = ASSUMED_RATES.gcpFilestorePerGbMonthUsd;
   return {
     objectPerGbMonth: object,
     blockPerGbMonth: block,
-    filePerGbMonth: FILESTORE_ASSUMED_PER_GB_MONTH,
+    filePerGbMonth: assumedFile.rate,
     listedCurrency: 'USD',
     skuRefs: {
       object: 'Cloud Storage Standard',
       block: 'PD-SSD',
-      file: 'Filestore standard (assumed $0.30/GB-month)',
+      file: assumedFile.skuRef,
     },
     fileSource: 'assumption',
   };

@@ -1,6 +1,6 @@
-import type { EstimateOptions, GcpSku, PriceQuote, Provider, SizeSpec } from './types.js';
+import type { EstimateOptions, GcpSku, PriceQuote, Provider, SizeSpec } from '../core/types.js';
+import { assertRegion } from '../core/regions.js';
 import { fetchGcpSkus, requireGcpKey, skuPrice } from './gcpCatalog.js';
-import { assertRegion } from './oci.js';
 
 export const gcpProvider: Provider = {
   id: 'gcp',

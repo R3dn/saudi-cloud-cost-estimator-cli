@@ -44,3 +44,13 @@ export function normalizeMonthly(params: {
     vatNote: vatCountryNote(params.country),
   };
 }
+
+/** Builds the component-level currency converter shared by every service estimator. */
+export function componentConverter(
+  listedCurrency: Currency,
+  displayCurrency: Currency,
+  fxRate: number,
+): (amount: number) => number {
+  return (amount: number) =>
+    convertCurrency({ amount, listedCurrency, displayCurrency, fxRate });
+}

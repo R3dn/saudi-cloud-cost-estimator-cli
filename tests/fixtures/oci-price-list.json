@@ -1,0 +1,400 @@
+[
+  {
+    "partNumber": "B107952",
+    "displayName": "Oracle Exadata Exascale Smart Database Storage",
+    "metricName": "Gigabyte (GB) Storage Capacity Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.73245312
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.1953
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B109356",
+    "displayName": "Oracle Exadata Exascale Database ECPU",
+    "metricName": "ECPU Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 1.2601344
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.336
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B111584",
+    "displayName": "Oracle Base Database Service - Database Storage",
+    "metricName": "Gigabyte (GB) Storage Capacity Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.450048
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.12
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B112725",
+    "displayName": "Oracle Base Database Service - Standard - x86 - ECPU",
+    "metricName": "ECPU Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.20177152
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0538
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B89057",
+    "displayName": "File Storage - Storage",
+    "metricName": "Gigabyte Storage Capacity Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 1.12512
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B91628",
+    "displayName": "Object Storage - Storage",
+    "metricName": "Gigabyte Storage Capacity Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 10
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0956352,
+            "rangeMin": 10,
+            "rangeMax": 999999999
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 10
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0255,
+            "rangeMin": 10,
+            "rangeMax": 999999999
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B91961",
+    "displayName": "Storage - Block Volume - Storage",
+    "metricName": "Gigabyte Storage Capacity Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0956352
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0255
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B93030",
+    "displayName": "Load Balancer Base",
+    "metricName": "Load Balancer",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 744
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.04237952,
+            "rangeMin": 744,
+            "rangeMax": 999999999
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 744
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0113,
+            "rangeMin": 744,
+            "rangeMax": 999999999
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B93113",
+    "displayName": "Compute - Standard - E4 - OCPU",
+    "metricName": "OCPU Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.09376
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.025
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B93114",
+    "displayName": "Compute - Standard - E4  - Memory",
+    "metricName": "Gigabyte Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0056256
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.0015
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B93456",
+    "displayName": "Outbound Data Transfer - Originating in Middle East and Africa",
+    "metricName": "Gigabyte Outbound Data Transfer Per Month",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 10240
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.18752,
+            "rangeMin": 10240,
+            "rangeMax": 999999999999999
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0,
+            "rangeMin": 0,
+            "rangeMax": 10240
+          },
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.05,
+            "rangeMin": 10240,
+            "rangeMax": 999999999999999
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B95909",
+    "displayName": "Compute  - GPU - A10",
+    "metricName": "GPU Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 7.5008
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B96109",
+    "displayName": "OCI Kubernetes Engine - Virtual Node",
+    "metricName": "Virtual Node Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.056256
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.015
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "partNumber": "B96545",
+    "displayName": "OCI Kubernetes Engine - Enhanced Cluster",
+    "metricName": "Cluster Per Hour",
+    "currencyCodeLocalizations": [
+      {
+        "currencyCode": "SAR",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.37504
+          }
+        ]
+      },
+      {
+        "currencyCode": "USD",
+        "prices": [
+          {
+            "model": "PAY_AS_YOU_GO",
+            "value": 0.1
+          }
+        ]
+      }
+    ]
+  }
+]

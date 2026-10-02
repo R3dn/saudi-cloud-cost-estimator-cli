@@ -1,6 +1,6 @@
-import type { ProviderId, ServiceEstimateOptions } from '../../core/types.js';
+﻿import type { ProviderId, ServiceEstimateOptions } from '../../core/types.js';
 import { providers } from '../../providers/index.js';
-import { assertRegion } from '../../providers/oci.js';
+import { assertRegion } from '../../core/regions.js';
 import type { NetworkEstimate, NetworkInput } from './types.js';
 import { estimateAwsNetwork } from './aws.js';
 import { estimateAzureNetwork } from './azure.js';

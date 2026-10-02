@@ -1,12 +1,13 @@
 import type { Currency, PriceSource, ServiceEstimateOptions, SizeProfile } from '../../core/types.js';
+import { ASSUMED_RATES } from '../../core/assumptions.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { gcpProvider } from '../../providers/gcp.js';
 import { fetchGcpSkus, requireGcpKey, skuPrice, GCP_COMPUTE_SERVICE } from '../../providers/gcpCatalog.js';
 
 /**
  * GKE management fee: fetched live from the Billing Catalog (Kubernetes Engine
- * management fee SKU). Falls back to the published $0.10/hour per-cluster list fee
- * only when the API is unreachable, explicitly labeled as an assumption.
+ * management fee SKU). Falls back to the published list fee only when the API is
+ * unreachable, explicitly labeled as an assumption.
  */
 export async function gcpK8sPrices(
   input: { region: string; nodeProfile: SizeProfile },
@@ -22,9 +23,9 @@ export async function gcpK8sPrices(
   const size = SKU_MAP.gcp[input.nodeProfile]!;
   const quote = await gcpProvider.getHourlyPrice(input.region, size, opts);
 
-  let controlPlaneHourly = 0.1;
+  let controlPlaneHourly = ASSUMED_RATES.gcpGkeManagementHourlyUsd.rate;
   let controlPlaneSource: PriceSource = 'assumption';
-  let controlPlaneSkuRef = 'GKE management fee (published list price $0.10/hr per cluster)';
+  let controlPlaneSkuRef = ASSUMED_RATES.gcpGkeManagementHourlyUsd.skuRef;
   const warnings: string[] = [];
 
   try {
@@ -40,7 +41,7 @@ export async function gcpK8sPrices(
       }
     }
   } catch {
-    warnings.push('GKE management fee API unavailable; using published list price $0.10/hr per cluster (assumption).');
+    warnings.push(`GKE management fee API unavailable; using ${ASSUMED_RATES.gcpGkeManagementHourlyUsd.skuRef} (assumption).`);
   }
 
   return {

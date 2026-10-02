@@ -13,6 +13,8 @@ export interface AzureItem {
   unitOfMeasure: string;
   type: string;
   armRegionName: string;
+  /** Lower bound of the volume tier this price applies to (GB), when the meter is tiered. */
+  tierMinimumUnits?: number;
 }
 
 interface AzureResponse {
@@ -23,6 +25,8 @@ interface AzureResponse {
 /**
  * Fetches and caches all retail-price items matching an OData $filter. Shared across
  * compute/storage/database/network. Uses armRegionName (not regionName).
+ * Zero-priced items are kept — some meters publish free allowance tiers
+ * (e.g. egress) that consumers must see; min-price consumers guard retailPrice > 0.
  */
 export async function fetchAzureItems(filter: string, noCache: boolean): Promise<AzureItem[]> {
   const cacheKey = `azure-${filter.replace(/[^a-zA-Z0-9]/g, '_')}`;
@@ -38,7 +42,7 @@ export async function fetchAzureItems(filter: string, noCache: boolean): Promise
         if (!res.ok) throw new Error(`Azure retail prices API returned ${res.status}`);
         const json = (await res.json()) as AzureResponse;
         for (const i of json.Items) {
-          if (i.retailPrice > 0) items.push(i);
+          if (Number.isFinite(i.retailPrice)) items.push(i);
         }
         url = json.NextPageLink ?? '';
         if (!url) break;
@@ -47,29 +51,4 @@ export async function fetchAzureItems(filter: string, noCache: boolean): Promise
     },
   });
   return data;
-}
-
-/** Best (lowest) item price whose unitOfMeasure is hourly, converted to a monthly rate. */
-export function bestHourlyMonthly(items: AzureItem[], predicate: (i: AzureItem) => boolean): number | null {
-  let best: number | null = null;
-  for (const i of items) {
-    if (!predicate(i)) continue;
-    const unit = (i.unitOfMeasure ?? '').toLowerCase();
-    let price = i.retailPrice;
-    if (unit.includes('hour')) price = price * 730;
-    if (price > 0 && (best === null || price < best)) best = price;
-  }
-  return best;
-}
-
-/** Best (lowest) monthly item price (unit GB/Month, 1/Month, etc.). */
-export function bestMonthlyPrice(items: AzureItem[], predicate: (i: AzureItem) => boolean): number | null {
-  let best: number | null = null;
-  for (const i of items) {
-    if (!predicate(i)) continue;
-    const unit = (i.unitOfMeasure ?? '').toLowerCase();
-    if (unit.includes('hour')) continue;
-    if (i.retailPrice > 0 && (best === null || i.retailPrice < best)) best = i.retailPrice;
-  }
-  return best;
 }

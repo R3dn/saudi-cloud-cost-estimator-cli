@@ -43,16 +43,42 @@ no existing open-source tool answers: *what does the same workload cost across t
 can actually use in or near Saudi Arabia?*
 
 ```text
-Provider                      Region                          Instance                              Hourly    Monthly (incl. 15% VAT*)
-──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-Oracle Cloud Infrastructure   Saudi Arabia Central (Riyadh)   VM.Standard.E4.Flex (4 OCPU / 16 GB)  SAR 0.47  SAR 390
-Amazon Web Services           Middle East (Bahrain)           m6i.xlarge                            SAR 0.99  SAR 831
-Microsoft Azure               UAE North                        Standard_D4s_v5                       SAR 0.88  SAR 740
-Google Cloud                  Dammam                          n2-standard-4                         see note   see note
+Provider                      Region                          Instance                              Specs          Hourly    Monthly (incl. 15% VAT*)
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Oracle Cloud Infrastructure   Saudi Arabia Central (Riyadh)   VM.Standard.E4.Flex (4 OCPU / 16 GB) 4 vCPU / 16 GB SAR 0.47  SAR 390
+Amazon Web Services           Middle East (Bahrain)           m6i.xlarge                            4 vCPU / 16 GB SAR 0.99  SAR 831
+Microsoft Azure               UAE North                       Standard_D4s_v5                       4 vCPU / 16 GB SAR 0.88  SAR 740
+Google Cloud                  Dammam                          n2-standard-4                         see note       see note
 ```
 
 Every number is tagged `live`, `fallback` or `assumption` — this tool never makes an
 approximation look like an official provider price.
+
+## Architecture
+
+```text
+src/index.ts (commander wiring, shared flag builders)
+    ↓
+src/cli/* (command actions + interactive @clack wizards)
+    ↓
+src/services/<service>/ (compute • storage • database • kubernetes • network • tco)
+    one estimator per provider + a registry; compare.ts emits one JSON envelope
+    ↓
+src/core/  pricing math shared by everything:
+    types (PriceQuote/ServiceEstimate/PriceTier) • pricing/normalization
+    (FX + VAT + monthly) • tiers (tieredCost: marginal volume tiers)
+    vat (15% + BH/AE reverse-charge note) • fx (USD→SAR, pegged fallback)
+    envelope (uniform compare JSON) • cache (24h TTL, atomic writes)
+    ↓
+src/providers/<id>.ts (compute adapters) + <id>Catalog.ts (shared API fetchers,
+    in-flight dedupe) • src/data/sizes.ts (curated profile → SKU map)
+    ↓
+Official pricing APIs (no static price files, no scraping)
+```
+
+Free allowances and volume tiers are modelled, not ignored: OCI's LB (744
+LB-hrs/month) and egress (10 TB/month), AWS egress/S3 volume tiers, Azure's
+100 GB egress allowance and GCP's `tieredRates` are all applied per tier.
 
 ## Why this exists
 
@@ -196,8 +222,9 @@ the catalogs differ substantially:
 | `--no-cache` | bypass the 24h price cache |
 | `--gcp-key` / `--gcp-key-file` | Google Cloud API key (or `GOOGLE_CLOUD_API_KEY`) |
 | `--json` | machine-readable output |
+| `--csv` | CSV output on compare commands (one row per provider) |
 
-### JSON output
+### JSON / CSV output
 
 All `compare` commands emit the same envelope:
 
@@ -223,8 +250,10 @@ All `compare` commands emit the same envelope:
 }
 ```
 
-Every component carries `source` (`live` | `fallback` | `assumption`) and the SKU/part it
-came from. Consumers can filter on provenance.
+`compute compare` rows additionally carry `instance`, `vcpu`, `gb`, `hourly`,
+`source` and `skuRef`. Every component carries `source` (`live` | `fallback` |
+`assumption`) and the SKU/part it came from, so consumers can filter on
+provenance. `regions --json` lists providers and regions the same way.
 
 ## VAT treatment
 
@@ -247,6 +276,27 @@ per GB** (the block rate shown is the S10 tier price spread over 128 GB, labeled
 derivation); OCI NAT Gateway is not exposed by its price list API (published list price,
 labeled); OKE control plane is priced as the paid *Enhanced Cluster* type (Basic clusters
 are free). Warnings always appear in output when an assumption affects a number.
+
+Free allowances and volume discounts are applied from the providers' own data, per tier —
+e.g. `network estimate -p oci --egress 20480 --lb 1 --nat`:
+
+```text
+  Oracle Cloud Infrastructure — Saudi Arabia Central (Riyadh)
+  Egress: 20480
+  Load Balancers: 1
+  NAT Gateway: Yes
+  Monthly: SAR 2381 (incl. 15% VAT — assumed where applicable)
+    - egress: SAR 1920 [live: B93456 (MEA outbound data transfer)]
+    - loadBalancer: SAR 0.00 [live: B93030 (LB base)]
+    - nat: SAR 151 [assumption: NAT Gateway published list price $0.055/hr]
+  Note: OCI NAT Gateway is not exposed by the price list API; using NAT Gateway published list price $0.055/hr (assumption, not an official API price).
+  Note: Egress: first 10240 GB/month free, remainder billed at 0.18752 SAR/GB.
+  Note: Load Balancer: first 744 LB-hours/month free (Always Free allowance), remainder billed at 0.04237952 SAR/hr.
+```
+
+Above: the first 10 TB of monthly egress are free (billed per GB beyond that), and a
+single always-on load balancer (730 h) sits entirely inside OCI's 744 LB-hour free
+allowance — SAR 0, straight from the live part `B93030`, not an approximation.
 
 ## Google Cloud setup (optional)
 
@@ -272,6 +322,10 @@ Live, official pricing APIs — no scraping, no static price files:
 | FX | [open.er-api.com](https://open.er-api.com) USD→SAR, cached 24h, pegged fallback 3.75 |
 
 Prices are **on-demand Linux** rates. SAR is USD-pegged at 3.75, so currency conversion is stable.
+
+Note on memory units: AWS and GCP list memory in GiB; the tool shows the provider-listed
+number under a unified "GB" label (1 GiB ≈ 1.074 GB). The small unit difference is
+disclosed here rather than silently converted, because providers bill on their own unit.
 
 ### Cache
 
@@ -320,19 +374,22 @@ appear in it. Reserved/committed-use comparisons are on the roadmap.
 npm install
 npm run typecheck
 npm run lint
+npm run test:unit   # unit + service + TCO + fixture contract tests (mocked APIs)
+npm run test:cli    # CLI smoke + end-to-end on the built binary (mocked APIs)
 npm run build
 npm run smoke
 ```
 
-The repository also ships a private test suite (not published in the package);
-maintainers run `npm test` — unit, service, CLI smoke and end-to-end cases, all
-against **mocked provider APIs** so no run ever hits live endpoints. Every pricing
-rule is covered by a test with golden numbers.
-
-CI (Linux + Windows, Node 20/22) runs typecheck, lint, build and smoke checks on
-every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules — most
-importantly: every price needs provenance, and every pricing change must be verified
-against the provider's own pricing page.
+The test suite lives in `tests/` and never hits live endpoints: provider APIs are
+mocked with data derived from the providers' own published rate tables, and
+`tests/fixtures/` pins recorded captures of the real OCI price list and AWS
+me-south-1 bulk CSV rows (including the OCI LB/egress free allowances and the
+AWS egress/S3 volume tiers) so a provider-side schema change fails before it
+can misprice anything. CI (Linux + Windows, Node 20/22) runs typecheck, lint,
+unit tests, build and smoke checks on every push, plus a dedicated CLI e2e job.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules — most importantly:
+every price needs provenance, and every pricing change must be verified against
+the provider's own pricing page.
 
 ## Roadmap
 

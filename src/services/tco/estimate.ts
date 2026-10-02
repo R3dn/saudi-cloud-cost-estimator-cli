@@ -1,8 +1,8 @@
-import type { ServiceEstimateOptions } from '../../core/types.js';
+﻿import type { ServiceEstimateOptions } from '../../core/types.js';
 import { getSarPerUsd } from '../../core/fx.js';
 import { normalizeMonthly } from '../../core/normalization.js';
 import { providers } from '../../providers/index.js';
-import { assertRegion } from '../../providers/oci.js';
+import { assertRegion } from '../../core/regions.js';
 import { SKU_MAP } from '../../data/sizes.js';
 import { storageEstimate } from '../storage/estimate.js';
 import { databaseEstimate } from '../database/estimate.js';
@@ -31,7 +31,7 @@ export async function runTco(input: TcoInput, opts: ServiceEstimateOptions): Pro
   });
   const compute: TcoServiceLine = { monthly: computeNorm.monthly, monthlyVat: computeNorm.monthlyVat, warnings: [] };
 
-  // Storage (egress is billed once, under network — never under storage)
+  // Storage (egress is billed once, under network â€” never under storage)
   const storage = await storageEstimate(input.providerId, {
     region: input.region,
     objectGb: input.storage.objectGb,

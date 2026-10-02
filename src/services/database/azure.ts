@@ -43,6 +43,7 @@ export async function estimateAzureDatabase(
   let storage: number | null = null;
   for (const i of items) {
     if (/storage|data stored/i.test(i.meterName) && /gb/i.test(i.unitOfMeasure) && !/hour/i.test(i.unitOfMeasure)) {
+      if (i.retailPrice <= 0) continue;
       if (storage === null || i.retailPrice < storage) storage = i.retailPrice;
     }
   }

@@ -177,7 +177,7 @@ export interface GcpSku {
   pricingInfo: {
     pricingExpression: {
       usageUnit: string;
-      tieredRates: { unitPrice: { units: string; nanos: number } }[];
+      tieredRates: { startUsageAmount?: number; unitPrice: { units: string; nanos: number } }[];
     };
   }[];
 }

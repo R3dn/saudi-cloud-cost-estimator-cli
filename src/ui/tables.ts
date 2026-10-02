@@ -9,16 +9,6 @@ export function fmtMoney(amount: number, currency: Currency): string {
   return `${currency === 'SAR' ? 'SAR ' : '$'}${rounded}`;
 }
 
-export function renderMoney(amount: number, currency: Currency): string {
-  return fmtMoney(amount, currency);
-}
-
-export function sourceTag(source: PriceSource): string {
-  if (source === 'live') return '';
-  if (source === 'fallback') return pc.yellow('[fallback price — not official]');
-  return pc.yellow('[assumption]');
-}
-
 export function renderEstimate(result: EstimateResult): void {
   const vatNote =
     result.monthlyVat !== result.monthly
@@ -51,6 +41,7 @@ export interface CompareRow {
   providerName: string;
   regionName: string;
   instance: string;
+  specs: string;
   hourly: string;
   monthly: string;
   monthlyVat: string;
@@ -64,6 +55,7 @@ export function renderCompare(rows: CompareRow[], currency: Currency, withVat: b
       pc.bold('Provider'),
       pc.bold('Region'),
       pc.bold('Instance'),
+      pc.bold('Specs'),
       pc.bold('Hourly'),
       pc.bold(vatHeader),
     ],
@@ -75,6 +67,7 @@ export function renderCompare(rows: CompareRow[], currency: Currency, withVat: b
         row.providerName,
         row.regionName,
         pc.dim(row.instance),
+        pc.dim(row.specs),
         pc.dim('-'),
         pc.yellow(row.error),
       ]);
@@ -83,6 +76,7 @@ export function renderCompare(rows: CompareRow[], currency: Currency, withVat: b
         row.providerName,
         row.regionName,
         row.instance,
+        pc.dim(row.specs),
         row.hourly,
         pc.bold(row.monthlyVat),
       ]);

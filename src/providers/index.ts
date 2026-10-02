@@ -1,4 +1,4 @@
-import type { Provider, ProviderId } from './types.js';
+import type { Provider, ProviderId } from '../core/types.js';
 import { ociProvider } from './oci.js';
 import { awsProvider } from './aws.js';
 import { azureProvider } from './azure.js';
